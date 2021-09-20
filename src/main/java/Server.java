@@ -211,7 +211,7 @@ public class Server
                             e.printStackTrace();
                         }
                         connections.remove(user1);
-                        System.out.println("이름 중복이니 연결제거");
+                        System.out.println("이름 중복이니 해당 socket 닫고 제거");
                         System.out.println("[연결 개수: " + connections.size() + "]");
                         return;
                     }
