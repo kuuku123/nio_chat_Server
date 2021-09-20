@@ -6,6 +6,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Vector;
@@ -18,7 +19,8 @@ public class Server
     ExecutorService executorService;
     ServerSocketChannel serverSocketChannel;
     List<User> connections = new Vector<>();
-
+    ByteBuffer writeBuffer = ByteBuffer.allocate((int) Math.pow(2,20));
+    ByteBuffer readBuffer = ByteBuffer.allocate((int) Math.pow(2,20));
 
     void startServer()
     {
@@ -99,18 +101,18 @@ public class Server
                 {
                     try
                     {
-                        ByteBuffer byteBuffer = ByteBuffer.allocate((int) Math.pow(2,20));
-                        int readByteCount = socketChannel.read(byteBuffer);
+                        int readByteCount = socketChannel.read(readBuffer);
                         if(readByteCount == -1) throw new IOException();
 
                         String message = "[요청 처리: " + socketChannel.getRemoteAddress() + ": "+ Thread.currentThread().getName() + "]";
                         System.out.println(message);
-                        byteBuffer.flip();
-                        int operation = byteBuffer.get(0);
-                        byteBuffer.position(1);
+                        readBuffer.flip();
+                        int operation = readBuffer.get(0);
+                        readBuffer.position(1);
                         Charset charset = Charset.forName("UTF-8");
-                        String data = charset.decode(byteBuffer).toString();
+                        String data = charset.decode(readBuffer).toString();
                         processOp(operation, data);
+                        readBuffer.clear();
 
 //                        for (User client : connections)
 //                        {
@@ -137,7 +139,7 @@ public class Server
             };
             executorService.submit(runnable);
         }
-        void send(String data)
+        void send(int s,int op,String data)
         {
             Runnable runnable = new Runnable()
             {
@@ -147,8 +149,12 @@ public class Server
                     try
                     {
                         Charset charset = Charset.forName("UTF-8");
-                        ByteBuffer byteBuffer = charset.encode(data);
-                        socketChannel.write(byteBuffer);
+                        writeBuffer.put((byte)s);
+                        writeBuffer.put((byte) op);
+                        writeBuffer.put(data.getBytes(StandardCharsets.UTF_8));
+                        ByteBuffer flip = writeBuffer.flip();
+                        socketChannel.write(flip);
+                        writeBuffer.clear();
                     }
                     catch(Exception e)
                     {
@@ -201,28 +207,18 @@ public class Server
                 {
                     if (user.userId.equals(name))
                     {
-                        send("duplicate nickname");
+                        send(-1,0,"duplicate nickname");
                         User user1 = connections.get(connections.size() - 1);
-                        try
-                        {
-                            user1.socketChannel.close();
-                        } catch (IOException e)
-                        {
-                            e.printStackTrace();
-                        }
-                        connections.remove(user1);
-                        System.out.println("이름 중복이니 해당 socket 닫고 제거");
-                        System.out.println("[연결 개수: " + connections.size() + "]");
                         return;
                     }
                 }
 
                 User user = connections.get(connections.size() - 1);
                 user.userId = name;
-                send("login complete");
+                send(0,0,"login complete");
 
             }
-            else send("login failed");
+            else send(-1,0,"login failed");
         }
 
         private void logoutProcess(String name)
