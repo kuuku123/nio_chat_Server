@@ -1,3 +1,5 @@
+import util.Operation;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
@@ -81,6 +83,9 @@ public class ServerExample
     {
         AsynchronousSocketChannel socketChannel;
         ByteBuffer readBuffer = ByteBuffer.allocate(1000);
+        ByteBuffer writeBuffer = ByteBuffer.allocate(1000);
+        String userId = "not set yet";
+
         Client(AsynchronousSocketChannel socketChannel)
         {
             this.socketChannel = socketChannel;
@@ -98,11 +103,26 @@ public class ServerExample
                         String message = "[요청 처리: " + socketChannel.getRemoteAddress() + ": " + Thread.currentThread().getName() + "]";
                         System.out.println(message);
                         attachment.flip();
-                        Charset charset = Charset.forName("UTF-8");
-                        String data = charset.decode(attachment).toString();
-                        System.out.println(data);
+                        byte[] reqIdReceive = new byte[4];
+                        byte[] reqNumReceive = new byte[4];
+                        byte[] reqUserId = new byte[16];
+                        byte[] reqRoomNum = new byte[4];
+                        ByteBuffer reqIdByte = attachment.get(reqIdReceive, 0, 4);
+                        int reqId =Integer.parseInt( reqIdByte.toString());
+                        attachment.position(4);
+                        ByteBuffer reqNumByte = attachment.get(reqNumReceive, 4, 4);
+                        int reqNum = Integer.parseInt(reqNumByte.toString());
+                        attachment.position(8);
+                        ByteBuffer reqUserIdByte = attachment.get(reqUserId, 8, 16);
+                        String userId = reqUserIdByte.toString();
+                        attachment.position(24);
+                        ByteBuffer reqRoomNumByte = attachment.get(reqRoomNum, 24, 4);
+                        int roomNum = Integer.parseInt(reqRoomNumByte.toString());
+                        attachment.position(28);
 
-                        for(Client client : connections) client.send(data);
+                        processOp(reqNum,reqId,userId,roomNum,attachment);
+
+//                        for(Client client : connections) client.send(data);
                         readBuffer.clear();
                         socketChannel.read(readBuffer,readBuffer,this);
                     }
@@ -123,10 +143,15 @@ public class ServerExample
             });
 
         }
-        void send(String data)
+        void send(int reqId , int result)
         {
             Charset charset = Charset.forName("UTF-8");
-            ByteBuffer writeBuffer = charset.encode(data);
+            writeBuffer.put((byte) reqId);
+            writeBuffer.position(4);
+            writeBuffer.put((byte) result);
+            writeBuffer.position(8);
+            writeBuffer.flip();
+
             socketChannel.write(writeBuffer, null, new CompletionHandler<Integer, Object>()
             {
                 @Override
@@ -146,6 +171,75 @@ public class ServerExample
                     catch (IOException e){}
                 }
             });
+        }
+
+
+        void processOp(int operation,int reqId,String userId, int roomNum, ByteBuffer data)
+        {
+            Operation op = Operation.fromInteger(operation);
+            switch (op)
+            {
+                case login:
+                    loginProcess(reqId,userId, data);
+                    System.out.println("login process completed");
+                    return;
+                case logout:
+                    logoutProcess(reqId,userId,data);
+                    System.out.println("logout process completed");
+                    return;
+                case sendText:
+                case fileUpload:
+                case fileList:
+                case fileDownload:
+                case fileDelete:
+                case createRoom:
+                case quitRoom:
+                case inviteRoom:
+                case requestQuitRoom:
+                case roomUserList:
+            }
+        }
+
+
+        private void loginProcess(int reqId,String userId, ByteBuffer data)
+        {
+            if (userId != null)
+            {
+                for (Client client : connections)
+                {
+                    if (client.userId.equals(userId))
+                    {
+                        send(reqId,0);
+                        Client user1 = connections.get(connections.size() - 1);
+                        connections.remove(user1);
+                        return;
+                    }
+                }
+
+                Client client1 = connections.get(connections.size() - 1);
+                client1.userId = userId;
+                send(reqId,-1);
+
+            }
+            else send(-1,0);
+        }
+
+        private void logoutProcess(int reqid, String userId, ByteBuffer data)
+        {
+            for (Client client : connections)
+            {
+                if (client.userId.equals(userId))
+                {
+                    try
+                    {
+                        client.socketChannel.close();
+                        break;
+                    } catch (IOException e)
+                    {
+                        e.printStackTrace();
+                    }
+                }
+            }
         }
 
     }
