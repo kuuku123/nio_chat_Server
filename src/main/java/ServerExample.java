@@ -8,6 +8,7 @@ import java.nio.channels.AsynchronousServerSocketChannel;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.Executors;
@@ -107,17 +108,17 @@ public class ServerExample
                         byte[] reqNumReceive = new byte[4];
                         byte[] reqUserId = new byte[16];
                         byte[] reqRoomNum = new byte[4];
-                        ByteBuffer reqIdByte = attachment.get(reqIdReceive, 0, 4);
-                        int reqId =Integer.parseInt( reqIdByte.toString());
+                        attachment.get(reqIdReceive);
+                        int reqId =byteToInt(reqIdReceive);
                         attachment.position(4);
-                        ByteBuffer reqNumByte = attachment.get(reqNumReceive, 4, 4);
-                        int reqNum = Integer.parseInt(reqNumByte.toString());
+                        attachment.get(reqNumReceive);
+                        int reqNum = byteToInt(reqNumReceive);
                         attachment.position(8);
-                        ByteBuffer reqUserIdByte = attachment.get(reqUserId, 8, 16);
-                        String userId = reqUserIdByte.toString();
+                        attachment.get(reqUserId);
+                        String userId = new String(reqUserId, StandardCharsets.UTF_8);
                         attachment.position(24);
-                        ByteBuffer reqRoomNumByte = attachment.get(reqRoomNum, 24, 4);
-                        int roomNum = Integer.parseInt(reqRoomNumByte.toString());
+                        attachment.get(reqRoomNum);
+                        int roomNum = byteToInt(reqRoomNum);
                         attachment.position(28);
 
                         processOp(reqNum,reqId,userId,roomNum,attachment);
@@ -146,10 +147,12 @@ public class ServerExample
         void send(int reqId , int result)
         {
             Charset charset = Charset.forName("UTF-8");
-            writeBuffer.put((byte) reqId);
+            writeBuffer.put(intTobyte(reqId));
             writeBuffer.position(4);
-            writeBuffer.put((byte) result);
+            writeBuffer.put(intTobyte( result));
             writeBuffer.position(8);
+            writeBuffer.put("hi".getBytes(StandardCharsets.UTF_8));
+            writeBuffer.position(12);
             writeBuffer.flip();
 
             socketChannel.write(writeBuffer, null, new CompletionHandler<Integer, Object>()
@@ -157,6 +160,7 @@ public class ServerExample
                 @Override
                 public void completed(Integer result, Object attachment)
                 {
+                    writeBuffer.clear();
                 }
 
                 @Override
@@ -209,19 +213,17 @@ public class ServerExample
                 {
                     if (client.userId.equals(userId))
                     {
-                        send(reqId,0);
-                        Client user1 = connections.get(connections.size() - 1);
-                        connections.remove(user1);
+                        send(reqId,-1);
                         return;
                     }
                 }
 
                 Client client1 = connections.get(connections.size() - 1);
                 client1.userId = userId;
-                send(reqId,-1);
+                send(reqId,0);
 
             }
-            else send(-1,0);
+            else send(reqId,-1);
         }
 
         private void logoutProcess(int reqid, String userId, ByteBuffer data)
@@ -242,6 +244,30 @@ public class ServerExample
             }
         }
 
+    }
+
+
+    public byte[] intTobyte(int value) {
+        byte[] bytes=new byte[4];
+        bytes[0]=(byte)((value&0xFF000000)>>24);
+        bytes[1]=(byte)((value&0x00FF0000)>>16);
+        bytes[2]=(byte)((value&0x0000FF00)>>8);
+        bytes[3]=(byte) (value&0x000000FF);
+
+        return bytes;
+
+    }
+    public int byteToInt(byte[] src) {
+
+        int newValue = 0;
+
+        newValue |= (((int)src[0])<<24)&0xFF000000;
+        newValue |= (((int)src[1])<<16)&0xFF0000;
+        newValue |= (((int)src[2])<<8)&0xFF00;
+        newValue |= (((int)src[3]))&0xFF;
+
+
+        return newValue;
     }
 
     public static void main(String[] args)
