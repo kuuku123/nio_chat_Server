@@ -14,7 +14,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 
-public class Server
+public class BlockingServer
 {
     ExecutorService executorService;
     ServerSocketChannel serverSocketChannel;
@@ -251,7 +251,7 @@ public class Server
 
     public static void main(String[] args)
     {
-        Server server = new Server();
+        BlockingServer server = new BlockingServer();
         server.startServer();
     }
 }
