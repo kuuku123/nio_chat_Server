@@ -3,6 +3,7 @@ import util.Operation;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousChannelGroup;
 import java.nio.channels.AsynchronousServerSocketChannel;
@@ -120,7 +121,6 @@ public class ServerExample
                 {
                     try
                     {
-                        logr.info("[요청 처리: " + socketChannel.getRemoteAddress() + ": " + Thread.currentThread().getName() + "]");
                         attachment.flip();
                         byte[] reqIdReceive = new byte[4];
                         byte[] reqNumReceive = new byte[4];
@@ -133,12 +133,14 @@ public class ServerExample
                         int reqNum = byteToInt(reqNumReceive);
                         attachment.position(8);
                         attachment.get(reqUserId);
-                        String userId = new String(reqUserId, StandardCharsets.UTF_8);
+                        byte[] userIdNonzero = removeZero(reqUserId);
+                        String userId = new String(userIdNonzero, StandardCharsets.UTF_8);
                         attachment.position(24);
                         attachment.get(reqRoomNum);
                         int roomNum = byteToInt(reqRoomNum);
                         attachment.position(28);
 
+                        logr.info("[요청 처리: " + socketChannel.getRemoteAddress() + ": " + Thread.currentThread().getName() + "]");
                         processOp(reqNum,reqId,userId,roomNum,attachment);
 
 //                        for(Client client : connections) client.send(data);
@@ -146,7 +148,13 @@ public class ServerExample
                         socketChannel.read(readBuffer,readBuffer,this);
                     }
                     catch (IOException e) {}
+                    catch (BufferUnderflowException e)
+                    {
+                        logr.info("Client가 연결을 끊음");
+                        readBuffer.clear();
+                    }
                 }
+
 
                 @Override
                 public void failed(Throwable exc, ByteBuffer attachment)
@@ -158,6 +166,21 @@ public class ServerExample
                         socketChannel.close();
                     }
                     catch (IOException e){}
+                }
+                private byte[] removeZero(byte[] reqUserId)
+                {
+                    int count = 0;
+                    for (byte b : reqUserId)
+                    {
+                        if (b == (byte) 0) count++;
+                    }
+                    int left = reqUserId.length - count;
+                    byte[] n = new byte[left];
+                    for (int i = 0; i<left; i++)
+                    {
+                        n[i] = reqUserId[i];
+                    }
+                    return n;
                 }
             });
 
@@ -231,12 +254,14 @@ public class ServerExample
                     if (client.userId.equals(userId))
                     {
                         send(reqId,-1);
+                        logr.info(userId +" already exist");
                         return;
                     }
                 }
 
                 Client client1 = connections.get(connections.size() - 1);
                 client1.userId = userId;
+                logr.info(userId + " logged in");
                 send(reqId,0);
 
             }
@@ -251,14 +276,18 @@ public class ServerExample
                 {
                     try
                     {
-                        client.socketChannel.close();
-                        break;
-                    } catch (IOException e)
+                        logr.info(userId + " logged out , info deleted");
+                        send(reqid,0);
+//                        client.socketChannel.close();
+                        connections.remove(client);
+                        return;
+                    } catch (Exception e)
                     {
                         e.printStackTrace();
                     }
                 }
             }
+            send(reqid,-1);
         }
 
     }
