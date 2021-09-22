@@ -9,7 +9,6 @@ import java.nio.channels.AsynchronousChannelGroup;
 import java.nio.channels.AsynchronousServerSocketChannel;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Vector;
@@ -24,7 +23,8 @@ public class ServerExample
     private final static Logger logr = Logger.getGlobal();
     AsynchronousChannelGroup channelGroup;
     AsynchronousServerSocketChannel serverSocketChannel;
-    List<Client> connections = new Vector<>();
+    List<Client> clientList = new Vector<>();
+    List<Room> ServerRoomList = new Vector<>();
 
     private static void setupLogger()
     {
@@ -71,8 +71,8 @@ public class ServerExample
                }
 
                Client client = new Client(socketChannel);
-               connections.add(client);
-               logr.info("[연결 개수: " + connections.size() + "]");
+               clientList.add(client);
+               logr.info("[연결 개수: " + clientList.size() + "]");
 
                serverSocketChannel.accept(null,this);
            }
@@ -90,7 +90,7 @@ public class ServerExample
     {
         try
         {
-            connections.clear();
+            clientList.clear();
             if(channelGroup != null && !channelGroup.isShutdown()) channelGroup.shutdown();
             logr.info("[서버 전체 종료]");
         }
@@ -106,6 +106,7 @@ public class ServerExample
         ByteBuffer readBuffer = ByteBuffer.allocate(10000);
         ByteBuffer writeBuffer = ByteBuffer.allocate(10000);
         String userId = "not set yet";
+        List<Room> myRoomList = new Vector<>();
 
         Client(AsynchronousSocketChannel socketChannel)
         {
@@ -164,7 +165,7 @@ public class ServerExample
                     {
                         logr.severe("[receive fail" + socketChannel.getRemoteAddress()+ " : " + Thread.currentThread().getName()+ "]");
                         logr.severe("removing "+Client.this.userId+ " connection");
-                        connections.remove(Client.this);
+                        clientList.remove(Client.this);
                         socketChannel.close();
                     }
                     catch (IOException e){}
@@ -196,7 +197,7 @@ public class ServerExample
                     try
                     {
                         logr.severe("[accept fail" + socketChannel.getRemoteAddress()+ " : " + Thread.currentThread().getName()+ "]");
-                        connections.remove(Client.this);
+                        clientList.remove(Client.this);
                         socketChannel.close();
                     }
                     catch (IOException e){}
@@ -226,6 +227,8 @@ public class ServerExample
                 case fileDownload:
                 case fileDelete:
                 case createRoom:
+                    createRoomProcess(reqId,userId,data);
+                    return;
                 case quitRoom:
                 case inviteRoom:
                 case requestQuitRoom:
@@ -238,7 +241,7 @@ public class ServerExample
         {
             if (userId != null)
             {
-                for (Client client : connections)
+                for (Client client : clientList)
                 {
                     if (client.userId.equals(userId))
                     {
@@ -248,7 +251,7 @@ public class ServerExample
                     }
                 }
 
-                Client client1 = connections.get(connections.size() - 1);
+                Client client1 = clientList.get(clientList.size() - 1);
                 client1.userId = userId;
                 logr.info(userId + " logged in");
                 send(reqId,0);
@@ -259,7 +262,7 @@ public class ServerExample
 
         private void logoutProcess(int reqid, String userId, ByteBuffer data)
         {
-            for (Client client : connections)
+            for (Client client : clientList)
             {
                 if (client.userId.equals(userId))
                 {
@@ -268,7 +271,7 @@ public class ServerExample
                         logr.info(userId + " logged out , info deleted");
                         send(reqid,0);
 //                        client.socketChannel.close();
-                        connections.remove(client);
+                        clientList.remove(client);
                         return;
                     } catch (Exception e)
                     {
@@ -290,6 +293,32 @@ public class ServerExample
             send(reqid,0);
         }
 
+        private void createRoomProcess(int reqId, String userId, ByteBuffer data)
+        {
+            int roomNum = ServerRoomList.size();
+            Room room = new Room(roomNum);
+            for (Client client : clientList)
+            {
+                if(client.userId.equals(userId))
+                {
+                    room.userList.add(client);
+                    client.myRoomList.add(room);
+                    break;
+                }
+            }
+            ServerRoomList.add(room);
+            send(reqId,0);
+        }
+    }
+
+    class Room
+    {
+        int roomNum;
+        List<Client> userList = new Vector<>();
+        Room(int roomNum)
+        {
+            this.roomNum = roomNum;
+        }
 
     }
 
