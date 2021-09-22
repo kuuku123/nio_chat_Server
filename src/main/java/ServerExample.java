@@ -1,3 +1,4 @@
+import util.LogFormatter;
 import util.Operation;
 
 import java.io.IOException;
@@ -12,13 +13,29 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.Executors;
+import java.util.logging.ConsoleHandler;
+import java.util.logging.Level;
+import java.util.logging.LogManager;
+import java.util.logging.Logger;
 
 public class ServerExample
 {
+    private final static Logger logr = Logger.getGlobal();
     AsynchronousChannelGroup channelGroup;
     AsynchronousServerSocketChannel serverSocketChannel;
     List<Client> connections = new Vector<>();
 
+    private static void setupLogger()
+    {
+        LogFormatter formatter = new LogFormatter();
+        LogManager.getLogManager().reset();
+        logr.setLevel(Level.ALL);
+
+        ConsoleHandler ch = new ConsoleHandler();
+        ch.setLevel(Level.INFO);
+        ch.setFormatter(formatter);
+        logr.addHandler(ch);
+    }
     void startServer()
     {
        try
@@ -29,12 +46,12 @@ public class ServerExample
            );
            serverSocketChannel = AsynchronousServerSocketChannel.open(channelGroup);
            serverSocketChannel.bind(new InetSocketAddress(5001));
-           System.out.println("[서버 연결됨]");
+           logr.info("[서버 연결됨]");
        }
        catch (Exception e)
        {
            if (serverSocketChannel.isOpen()) stopServer();
-           System.out.println("[서버 연결 실패 startServer]");
+           logr.severe("[서버 연결 실패 startServer]");
            return;
        }
 
@@ -45,17 +62,16 @@ public class ServerExample
            {
                try
                {
-                   String message = "[연결 수락: " + socketChannel.getRemoteAddress() + ": " + Thread.currentThread().getName() + "]";
-                   System.out.println(message);
+                   logr.info("[연결 수락: " + socketChannel.getRemoteAddress() + ": " + Thread.currentThread().getName() + "]");
                }
                catch (IOException e)
                {
-                   System.out.println("[Client 연결 안됨 accpet]");
+                   logr.severe("[Client 연결 도중에 끊김 accept IOException fail]");
                }
 
                Client client = new Client(socketChannel);
                connections.add(client);
-               System.out.println("[연결 개수: " + connections.size() + "]");
+               logr.info("[연결 개수: " + connections.size() + "]");
 
                serverSocketChannel.accept(null,this);
            }
@@ -64,7 +80,7 @@ public class ServerExample
            public void failed(Throwable exc, Void attachment)
            {
                 if (serverSocketChannel.isOpen()) stopServer();
-               System.out.println("[Client 연결 안됨 accpet]");
+               logr.severe("[Client 연결 안됨 accept fail]");
            }
        });
     }
@@ -75,9 +91,12 @@ public class ServerExample
         {
             connections.clear();
             if(channelGroup != null && !channelGroup.isShutdown()) channelGroup.shutdown();
-            System.out.println("[서버 전체 종료]");
+            logr.info("[서버 전체 종료]");
         }
-        catch (Exception e){}
+        catch (Exception e)
+        {
+            logr.severe("[서버 전체 종료 실패]");
+        }
     }
 
     class Client
@@ -101,8 +120,7 @@ public class ServerExample
                 {
                     try
                     {
-                        String message = "[요청 처리: " + socketChannel.getRemoteAddress() + ": " + Thread.currentThread().getName() + "]";
-                        System.out.println(message);
+                        logr.info("[요청 처리: " + socketChannel.getRemoteAddress() + ": " + Thread.currentThread().getName() + "]");
                         attachment.flip();
                         byte[] reqIdReceive = new byte[4];
                         byte[] reqNumReceive = new byte[4];
@@ -135,7 +153,7 @@ public class ServerExample
                 {
                     try
                     {
-                        String message = "[ 클라이언트 통신 안됨: " + socketChannel.getRemoteAddress() + ": " + Thread.currentThread().getName() + "]";
+                        logr.severe("[receive fail" + socketChannel.getRemoteAddress()+ " : " + Thread.currentThread().getName()+ "]");
                         connections.remove(Client.this);
                         socketChannel.close();
                     }
@@ -146,7 +164,6 @@ public class ServerExample
         }
         void send(int reqId , int result)
         {
-            Charset charset = Charset.forName("UTF-8");
             writeBuffer.put(intTobyte(reqId));
             writeBuffer.position(4);
             writeBuffer.put(intTobyte( result));
@@ -168,7 +185,7 @@ public class ServerExample
                 {
                     try
                     {
-                        String message = "[ 클라이언트 통신 안됨 " + socketChannel.getRemoteAddress() + ": " + Thread.currentThread().getName() + "]";
+                        logr.severe("[accept fail" + socketChannel.getRemoteAddress()+ " : " + Thread.currentThread().getName()+ "]");
                         connections.remove(Client.this);
                         socketChannel.close();
                     }
@@ -185,11 +202,11 @@ public class ServerExample
             {
                 case login:
                     loginProcess(reqId,userId, data);
-                    System.out.println("login process completed");
+                    logr.info("login process completed");
                     return;
                 case logout:
                     logoutProcess(reqId,userId,data);
-                    System.out.println("logout process completed");
+                    logr.info("logout process completed");
                     return;
                 case sendText:
                 case fileUpload:
@@ -272,6 +289,7 @@ public class ServerExample
 
     public static void main(String[] args)
     {
+        setupLogger();
         ServerExample serverExample = new ServerExample();
         serverExample.startServer();
     }
