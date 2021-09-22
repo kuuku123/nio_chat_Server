@@ -173,7 +173,7 @@ public class ServerExample
             });
 
         }
-        void send(int reqId , int result)
+        void send(int reqId , int result, ByteBuffer leftover)
         {
             writeBuffer.put(intTobyte(reqId));
             writeBuffer.position(4);
@@ -181,6 +181,7 @@ public class ServerExample
             writeBuffer.position(8);
             writeBuffer.put("hi".getBytes(StandardCharsets.UTF_8));
             writeBuffer.position(12);
+            writeBuffer.put(leftover);
             writeBuffer.flip();
 
             socketChannel.write(writeBuffer, null, new CompletionHandler<Integer, Object>()
@@ -245,7 +246,7 @@ public class ServerExample
                 {
                     if (client.userId.equals(userId))
                     {
-                        send(reqId,-1);
+                        send(reqId,-1,ByteBuffer.allocate(0));
                         logr.info(userId +" already exist");
                         return;
                     }
@@ -254,10 +255,10 @@ public class ServerExample
                 Client client1 = clientList.get(clientList.size() - 1);
                 client1.userId = userId;
                 logr.info(userId + " logged in");
-                send(reqId,0);
+                send(reqId,0,ByteBuffer.allocate(0));
 
             }
-            else send(reqId,-1);
+            else send(reqId,-1, ByteBuffer.allocate(0));
         }
 
         private void logoutProcess(int reqid, String userId, ByteBuffer data)
@@ -269,7 +270,7 @@ public class ServerExample
                     try
                     {
                         logr.info(userId + " logged out , info deleted");
-                        send(reqid,0);
+                        send(reqid,0,ByteBuffer.allocate(0));
 //                        client.socketChannel.close();
                         clientList.remove(client);
                         return;
@@ -279,10 +280,10 @@ public class ServerExample
                     }
                 }
             }
-            send(reqid,-1);
+            send(reqid,-1,ByteBuffer.allocate(0));
         }
 
-        private void sendTextProcess(int reqid, String userId, ByteBuffer data)
+        private void sendTextProcess(int reqId, String userId, ByteBuffer data)
         {
             byte[] t = new byte[1000];
             int position = data.position();
@@ -290,7 +291,7 @@ public class ServerExample
             data.get(t,0,limit-position);
             String text = new String(removeZero(t),StandardCharsets.UTF_8);
             System.out.println(userId + ": "+text);
-            send(reqid,0);
+            send(reqId,0,ByteBuffer.allocate(0));
         }
 
         private void createRoomProcess(int reqId, String userId, ByteBuffer data)
@@ -307,7 +308,10 @@ public class ServerExample
                 }
             }
             ServerRoomList.add(room);
-            send(reqId,0);
+            ByteBuffer forRoom = ByteBuffer.allocate(10);
+            forRoom.put(intTobyte(roomNum));
+            forRoom.flip();
+            send(reqId,0,forRoom);
         }
     }
 
