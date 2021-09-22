@@ -103,8 +103,8 @@ public class ServerExample
     class Client
     {
         AsynchronousSocketChannel socketChannel;
-        ByteBuffer readBuffer = ByteBuffer.allocate(1000);
-        ByteBuffer writeBuffer = ByteBuffer.allocate(1000);
+        ByteBuffer readBuffer = ByteBuffer.allocate(10000);
+        ByteBuffer writeBuffer = ByteBuffer.allocate(10000);
         String userId = "not set yet";
 
         Client(AsynchronousSocketChannel socketChannel)
@@ -126,6 +126,7 @@ public class ServerExample
                         byte[] reqNumReceive = new byte[4];
                         byte[] reqUserId = new byte[16];
                         byte[] reqRoomNum = new byte[4];
+                        byte[] leftover = new byte[1000];
                         attachment.get(reqIdReceive);
                         int reqId =byteToInt(reqIdReceive);
                         attachment.position(4);
@@ -150,7 +151,7 @@ public class ServerExample
                     catch (IOException e) {}
                     catch (BufferUnderflowException e)
                     {
-                        logr.info("Client가 연결을 끊음");
+                        logr.info("receive 하는중에 BufferUnderflow 발생함");
                         readBuffer.clear();
                     }
                 }
@@ -162,25 +163,11 @@ public class ServerExample
                     try
                     {
                         logr.severe("[receive fail" + socketChannel.getRemoteAddress()+ " : " + Thread.currentThread().getName()+ "]");
+                        logr.severe("removing "+Client.this.userId+ " connection");
                         connections.remove(Client.this);
                         socketChannel.close();
                     }
                     catch (IOException e){}
-                }
-                private byte[] removeZero(byte[] reqUserId)
-                {
-                    int count = 0;
-                    for (byte b : reqUserId)
-                    {
-                        if (b == (byte) 0) count++;
-                    }
-                    int left = reqUserId.length - count;
-                    byte[] n = new byte[left];
-                    for (int i = 0; i<left; i++)
-                    {
-                        n[i] = reqUserId[i];
-                    }
-                    return n;
                 }
             });
 
@@ -232,6 +219,8 @@ public class ServerExample
                     logr.info("logout process completed");
                     return;
                 case sendText:
+                    sendTextProcess(reqId,userId,data);
+                    return;
                 case fileUpload:
                 case fileList:
                 case fileDownload:
@@ -290,6 +279,18 @@ public class ServerExample
             send(reqid,-1);
         }
 
+        private void sendTextProcess(int reqid, String userId, ByteBuffer data)
+        {
+            byte[] t = new byte[1000];
+            int position = data.position();
+            int limit = data.limit();
+            data.get(t,0,limit-position);
+            String text = new String(removeZero(t),StandardCharsets.UTF_8);
+            System.out.println(userId + ": "+text);
+            send(reqid,0);
+        }
+
+
     }
 
 
@@ -316,6 +317,21 @@ public class ServerExample
         return newValue;
     }
 
+    private byte[] removeZero(byte[] reqUserId)
+    {
+        int count = 0;
+        for (byte b : reqUserId)
+        {
+            if (b == (byte) 0) count++;
+        }
+        int left = reqUserId.length - count;
+        byte[] n = new byte[left];
+        for (int i = 0; i<left; i++)
+        {
+            n[i] = reqUserId[i];
+        }
+        return n;
+    }
     public static void main(String[] args)
     {
         setupLogger();
