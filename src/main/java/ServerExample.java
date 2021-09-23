@@ -10,6 +10,7 @@ import java.nio.channels.AsynchronousServerSocketChannel;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.Executors;
@@ -107,6 +108,8 @@ public class ServerExample
         ByteBuffer writeBuffer = ByteBuffer.allocate(10000);
         String userId = "not set yet";
         List<Room> myRoomList = new Vector<>();
+        Room myCurRoom;
+
 
         Client(AsynchronousSocketChannel socketChannel)
         {
@@ -147,7 +150,7 @@ public class ServerExample
 
 //                        for(Client client : connections) client.send(data);
                         readBuffer.clear();
-                        socketChannel.read(readBuffer,readBuffer,this);
+                        if(socketChannel != null) socketChannel.read(readBuffer,readBuffer,this);
                     }
                     catch (IOException e) {}
                     catch (BufferUnderflowException e)
@@ -178,8 +181,6 @@ public class ServerExample
             writeBuffer.position(4);
             writeBuffer.put(intTobyte( result));
             writeBuffer.position(8);
-            writeBuffer.put("hi".getBytes(StandardCharsets.UTF_8));
-            writeBuffer.position(12);
             writeBuffer.put(leftover);
             writeBuffer.flip();
 
@@ -247,7 +248,9 @@ public class ServerExample
                     {
                         if(client.socketChannel!= null)
                         {
-                            send(reqId,-1,ByteBuffer.allocate(0));
+                            Client newClient = clientList.get(clientList.size() - 1);
+                            clientList.remove(newClient);
+                            send(reqId,4,ByteBuffer.allocate(0));
                             logr.info(userId +" already exist");
                         }
                         else if(client.socketChannel == null)
@@ -291,7 +294,7 @@ public class ServerExample
                     }
                 }
             }
-            send(reqid,-1,ByteBuffer.allocate(0));
+            send(reqid,1,ByteBuffer.allocate(0));
         }
 
         private void sendTextProcess(int reqId, String userId, ByteBuffer data)
@@ -308,13 +311,21 @@ public class ServerExample
         private void createRoomProcess(int reqId, String userId, ByteBuffer data)
         {
             int roomNum = ServerRoomList.size();
+            byte[] roomNameReceive = new byte[20];
+            int position = data.position();
+            int limit = data.limit();
+            data.get(roomNameReceive,0,limit-position);
+            byte[] roomNameNonzero = removeZero(roomNameReceive);
+            String roomName = new String(roomNameNonzero, StandardCharsets.UTF_8);
             Room room = new Room(roomNum);
+            room.roomName = roomName;
             for (Client client : clientList)
             {
                 if(client.userId.equals(userId))
                 {
                     room.userList.add(client);
                     client.myRoomList.add(room);
+                    client.myCurRoom = room;
                     break;
                 }
             }
@@ -322,6 +333,7 @@ public class ServerExample
             ByteBuffer forRoom = ByteBuffer.allocate(10);
             forRoom.put(intTobyte(roomNum));
             forRoom.flip();
+            logr.info("[roomName : "+roomName+" roomNum : "+roomNum+" created by "+userId+" ]");
             send(reqId,0,forRoom);
         }
     }
@@ -329,7 +341,9 @@ public class ServerExample
     class Room
     {
         int roomNum;
+        String roomName;
         List<Client> userList = new Vector<>();
+        List<String> chatLog = new ArrayList<>();
         Room(int roomNum)
         {
             this.roomNum = roomNum;
