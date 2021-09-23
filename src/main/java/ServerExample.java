@@ -175,15 +175,27 @@ public class ServerExample
             });
 
         }
-        void send(int reqId , int result, ByteBuffer leftover)
+        void send(int reqId , int broadcastNum ,int result,String userId, ByteBuffer leftover)
         {
-            writeBuffer.put(intTobyte(reqId));
-            writeBuffer.position(4);
-            writeBuffer.put(intTobyte( result));
-            writeBuffer.position(8);
-            writeBuffer.put(leftover);
+            if(reqId != -1)
+            {
+                writeBuffer.put(intTobyte(reqId));
+                writeBuffer.position(4);
+                writeBuffer.put(intTobyte( result));
+                writeBuffer.position(8);
+                writeBuffer.put(leftover);
+            }
+            else if (reqId == -1)
+            {
+                writeBuffer.put(intTobyte(reqId));
+                writeBuffer.position(4);
+                writeBuffer.put(intTobyte(broadcastNum));
+                writeBuffer.position(8);
+                writeBuffer.put(userId.getBytes(StandardCharsets.UTF_8));
+                writeBuffer.position(24);
+                writeBuffer.put(leftover);
+            }
             writeBuffer.flip();
-
             socketChannel.write(writeBuffer, null, new CompletionHandler<Integer, Object>()
             {
                 @Override
@@ -250,7 +262,7 @@ public class ServerExample
                         {
                             Client newClient = clientList.get(clientList.size() - 1);
                             clientList.remove(newClient);
-                            send(reqId,4,ByteBuffer.allocate(0));
+                            send(reqId,0,4,"",ByteBuffer.allocate(0));
                             logr.info(userId +" already exist");
                         }
                         else if(client.socketChannel == null)
@@ -258,7 +270,7 @@ public class ServerExample
                             Client newClient = clientList.get(clientList.size() - 1);
                             client.socketChannel = newClient.socketChannel;
                             clientList.remove(newClient);
-                            send(reqId,0,ByteBuffer.allocate(0));
+                            send(reqId,0,0,"",ByteBuffer.allocate(0));
                             logr.info("[연결 개수: " + clientList.size() + "]");
                             logr.info(userId + " 재로그인 성공");
                         }
@@ -269,10 +281,10 @@ public class ServerExample
                 Client client1 = clientList.get(clientList.size() - 1);
                 client1.userId = userId;
                 logr.info(userId + " logged in");
-                send(reqId,0,ByteBuffer.allocate(0));
+                send(reqId,0,0,"",ByteBuffer.allocate(0));
 
             }
-            else send(reqId,-1, ByteBuffer.allocate(0));
+            else send(reqId,0,-1,"" ,ByteBuffer.allocate(0));
         }
 
         private void logoutProcess(int reqid, String userId, ByteBuffer data)
@@ -284,7 +296,7 @@ public class ServerExample
                     try
                     {
                         logr.info(userId + " logged out , connection info deleted");
-                        send(reqid,0,ByteBuffer.allocate(0));
+                        send(reqid,0,0,"",ByteBuffer.allocate(0));
 //                        client.socketChannel.close();
                         client.socketChannel = null;
                         return;
@@ -294,18 +306,33 @@ public class ServerExample
                     }
                 }
             }
-            send(reqid,1,ByteBuffer.allocate(0));
+            send(reqid,0,1,"",ByteBuffer.allocate(0));
         }
 
         private void sendTextProcess(int reqId, String userId, ByteBuffer data)
         {
+            for(Client client : clientList)
+            {
+                if (client.userId.equals(userId))
+                {
+                    if(client.myRoomList.size() == 0 || client.myCurRoom == null)
+                    {
+                        send(reqId,0,3,"",ByteBuffer.allocate(0));
+                        return;
+                    }
+                }
+            }
+            for (Client client : myCurRoom.userList)
+            {
+//                if(client == this) continue;
+                client.send(-1,2,0,this.userId,data);
+            }
             byte[] t = new byte[1000];
             int position = data.position();
             int limit = data.limit();
             data.get(t,0,limit-position);
             String text = new String(removeZero(t),StandardCharsets.UTF_8);
-            System.out.println(userId + ": "+text);
-            send(reqId,0,ByteBuffer.allocate(0));
+            myCurRoom.chatLog.add(text);
         }
 
         private void createRoomProcess(int reqId, String userId, ByteBuffer data)
@@ -334,7 +361,7 @@ public class ServerExample
             forRoom.put(intTobyte(roomNum));
             forRoom.flip();
             logr.info("[roomName : "+roomName+" roomNum : "+roomNum+" created by "+userId+" ]");
-            send(reqId,0,forRoom);
+            send(reqId,0,0,"",forRoom);
         }
     }
 
