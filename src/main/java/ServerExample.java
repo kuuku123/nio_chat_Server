@@ -130,7 +130,6 @@ public class ServerExample
                         byte[] reqNumReceive = new byte[4];
                         byte[] reqUserId = new byte[16];
                         byte[] reqRoomNum = new byte[4];
-                        byte[] leftover = new byte[1000];
                         attachment.get(reqIdReceive);
                         int reqId =byteToInt(reqIdReceive);
                         attachment.position(4);
@@ -140,6 +139,7 @@ public class ServerExample
                         attachment.get(reqUserId);
                         byte[] userIdNonzero = removeZero(reqUserId);
                         String userId = new String(userIdNonzero, StandardCharsets.UTF_8);
+                        System.out.println(userId + " -------------- ");
                         attachment.position(24);
                         attachment.get(reqRoomNum);
                         int roomNum = byteToInt(reqRoomNum);
@@ -149,6 +149,7 @@ public class ServerExample
                         processOp(reqNum,reqId,userId,roomNum,attachment);
 
 //                        for(Client client : connections) client.send(data);
+                        readBuffer = ByteBuffer.allocate(10000);
                         readBuffer.clear();
                         if(socketChannel != null) socketChannel.read(readBuffer,readBuffer,this);
                     }
@@ -156,6 +157,7 @@ public class ServerExample
                     catch (BufferUnderflowException e)
                     {
                         logr.info("receive 하는중에 BufferUnderflow 발생함");
+                        readBuffer = ByteBuffer.allocate(10000);
                         readBuffer.clear();
                     }
                 }
@@ -201,6 +203,7 @@ public class ServerExample
                 @Override
                 public void completed(Integer result, Object attachment)
                 {
+                    writeBuffer = ByteBuffer.allocate(10000);
                     writeBuffer.clear();
                 }
 
@@ -217,6 +220,7 @@ public class ServerExample
                 }
             });
         }
+
 
 
         void processOp(int operation,int reqId,String userId, int roomNum, ByteBuffer data)
@@ -244,8 +248,9 @@ public class ServerExample
                     return;
                 case quitRoom:
                 case inviteRoom:
-                case requestQuitRoom:
+                    inviteRoomProcess(reqId,roomNum,userId,data);
                 case roomUserList:
+                case roomList:
             }
         }
 
@@ -322,17 +327,21 @@ public class ServerExample
                     }
                 }
             }
-            for (Client client : myCurRoom.userList)
-            {
-//                if(client == this) continue;
-                client.send(-1,2,0,this.userId,data);
-            }
             byte[] t = new byte[1000];
             int position = data.position();
             int limit = data.limit();
             data.get(t,0,limit-position);
             String text = new String(removeZero(t),StandardCharsets.UTF_8);
             myCurRoom.chatLog.add(text);
+
+            for (Client client : myCurRoom.userList)
+            {
+                ByteBuffer chatData = ByteBuffer.allocate(1000);
+                chatData.put(text.getBytes(StandardCharsets.UTF_8));
+                chatData.flip();
+                if(client == this) continue;
+                client.send(-1,2,0,this.userId,chatData);
+            }
         }
 
         private void createRoomProcess(int reqId, String userId, ByteBuffer data)
@@ -362,6 +371,38 @@ public class ServerExample
             forRoom.flip();
             logr.info("[roomName : "+roomName+" roomNum : "+roomNum+" created by "+userId+" ]");
             send(reqId,0,0,"",forRoom);
+        }
+
+        void inviteRoomProcess(int reqId,int roomNum, String userId, ByteBuffer data)
+        {
+            Room invited = null;
+            for (Room room : ServerRoomList)
+            {
+                if (room.roomNum == roomNum)
+                {
+                    invited = room;
+                    break;
+                }
+            }
+            byte[] userListReceive = new byte[1000];
+            int position = data.position();
+            int limit = data.limit();
+            data.get(userListReceive,0,limit-position);
+            String userList = new String(removeZero(userListReceive), StandardCharsets.UTF_8);
+            String[] users = userList.split(" ");
+            for (String user : users)
+            {
+                for (Client client : clientList)
+                {
+                    if (client.userId.equals(user))
+                    {
+                        client.myCurRoom = invited;
+                        client.myRoomList.add(invited);
+                        client.myCurRoom.userList.add(client);
+                    }
+                }
+            }
+            send(reqId,0,0,userId,ByteBuffer.allocate(0));
         }
     }
 

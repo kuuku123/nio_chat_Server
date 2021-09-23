@@ -2,7 +2,7 @@ package util;
 
 public enum Operation
 {
-    login , logout, sendText,fileUpload, fileList,fileDownload,fileDelete, createRoom, quitRoom,inviteRoom,requestQuitRoom, roomUserList;
+    login , logout, sendText,fileUpload, fileList,fileDownload,fileDelete, createRoom, quitRoom,inviteRoom, roomUserList , roomList;
 
     public static Operation fromInteger(int x)
     {
@@ -29,9 +29,9 @@ public enum Operation
             case 9:
                 return inviteRoom;
             case 10:
-                return requestQuitRoom;
-            case 11:
                 return roomUserList;
+            case 11:
+                return roomList;
         }
         return null;
     }
