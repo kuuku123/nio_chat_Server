@@ -102,7 +102,7 @@ public class ServerExample
 
     class Client
     {
-        AsynchronousSocketChannel socketChannel;
+        AsynchronousSocketChannel socketChannel = null;
         ByteBuffer readBuffer = ByteBuffer.allocate(10000);
         ByteBuffer writeBuffer = ByteBuffer.allocate(10000);
         String userId = "not set yet";
@@ -164,9 +164,8 @@ public class ServerExample
                     try
                     {
                         logr.severe("[receive fail" + socketChannel.getRemoteAddress()+ " : " + Thread.currentThread().getName()+ "]");
-                        logr.severe("removing "+Client.this.userId+ " connection");
-                        clientList.remove(Client.this);
                         socketChannel.close();
+                        socketChannel = null;
                     }
                     catch (IOException e){}
                 }
@@ -246,8 +245,20 @@ public class ServerExample
                 {
                     if (client.userId.equals(userId))
                     {
-                        send(reqId,-1,ByteBuffer.allocate(0));
-                        logr.info(userId +" already exist");
+                        if(client.socketChannel!= null)
+                        {
+                            send(reqId,-1,ByteBuffer.allocate(0));
+                            logr.info(userId +" already exist");
+                        }
+                        else if(client.socketChannel == null)
+                        {
+                            Client newClient = clientList.get(clientList.size() - 1);
+                            client.socketChannel = newClient.socketChannel;
+                            clientList.remove(newClient);
+                            send(reqId,0,ByteBuffer.allocate(0));
+                            logr.info("[연결 개수: " + clientList.size() + "]");
+                            logr.info(userId + " 재로그인 성공");
+                        }
                         return;
                     }
                 }
@@ -269,10 +280,10 @@ public class ServerExample
                 {
                     try
                     {
-                        logr.info(userId + " logged out , info deleted");
+                        logr.info(userId + " logged out , connection info deleted");
                         send(reqid,0,ByteBuffer.allocate(0));
 //                        client.socketChannel.close();
-                        clientList.remove(client);
+                        client.socketChannel = null;
                         return;
                     } catch (Exception e)
                     {
