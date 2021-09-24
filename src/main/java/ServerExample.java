@@ -276,6 +276,7 @@ public class ServerExample
 
         private void loginProcess(int reqId,String userId, ByteBuffer data)
         {
+            ByteBuffer roomNumByte = ByteBuffer.allocate(4);
             if (userId != null)
             {
                 for (Client client : clientList)
@@ -294,18 +295,29 @@ public class ServerExample
                             Client newClient = clientList.get(clientList.size() - 1);
                             client.socketChannel = newClient.socketChannel;
                             clientList.remove(newClient);
-                            send(reqId,0,0,"",ByteBuffer.allocate(0));
+
+                            if(client.myCurRoom != null)
+                            {
+                                roomNumByte.putInt(client.myCurRoom.roomNum);
+                            }
+                            else if(client.myCurRoom == null)
+                            {
+                                roomNumByte.putInt(-2);
+                            }
+                            roomNumByte.flip();
+                            send(reqId,0,0,"",roomNumByte);
                             logr.info("[연결 개수: " + clientList.size() + "]");
                             logr.info(userId + " 재로그인 성공");
                         }
                         return;
                     }
                 }
-
+                roomNumByte.putInt(-2);
+                roomNumByte.flip();
                 Client client1 = clientList.get(clientList.size() - 1);
                 client1.userId = userId;
                 logr.info(userId + " logged in");
-                send(reqId,0,0,"",ByteBuffer.allocate(0));
+                send(reqId,0,0,"",roomNumByte);
 
             }
             else send(reqId,0,-1,"" ,ByteBuffer.allocate(0));
@@ -335,10 +347,12 @@ public class ServerExample
 
         private void sendTextProcess(int reqId, String userId, ByteBuffer data)
         {
+            Client currentSender = null;
             for(Client client : clientList)
             {
                 if (client.userId.equals(userId))
                 {
+                    currentSender = client;
                     if(client.myRoomList.size() == 0 || client.myCurRoom == null)
                     {
                         send(reqId,0,3,"",ByteBuffer.allocate(0));
@@ -353,14 +367,14 @@ public class ServerExample
             String text = new String(removeZero(t),StandardCharsets.UTF_8);
             String logText = userId + " : " + text;
 
-            myCurRoom.chatLog.add(logText);
+            currentSender.myCurRoom.chatLog.add(logText);
 
-            for (Client client : myCurRoom.userList)
+            for (Client client : currentSender.myCurRoom.userList)
             {
                 ByteBuffer chatData = ByteBuffer.allocate(1000);
                 chatData.put(text.getBytes(StandardCharsets.UTF_8));
                 chatData.flip();
-                if(client == this)
+                if(client == currentSender)
                 {
                     synchronized (for_sendTextProcess)
                     {
@@ -375,7 +389,7 @@ public class ServerExample
                     }
                     continue;
                 }
-                client.send(-1,2,0,this.userId,chatData);
+                client.send(-1,2,0,currentSender.userId,chatData);
             }
         }
 
