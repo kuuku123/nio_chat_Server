@@ -139,7 +139,6 @@ public class ServerExample
                         attachment.get(reqUserId);
                         byte[] userIdNonzero = removeZero(reqUserId);
                         String userId = new String(userIdNonzero, StandardCharsets.UTF_8);
-                        System.out.println(userId + " -------------- ");
                         attachment.position(24);
                         attachment.get(reqRoomNum);
                         int roomNum = byteToInt(reqRoomNum);
