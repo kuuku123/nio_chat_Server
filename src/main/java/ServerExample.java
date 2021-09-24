@@ -22,6 +22,8 @@ import java.util.logging.Logger;
 public class ServerExample
 {
     private final static Logger logr = Logger.getGlobal();
+    private Object for_inviteRoomProcess = new Object();
+    private Object for_sendTextProcess = new Object();
     AsynchronousChannelGroup channelGroup;
     AsynchronousServerSocketChannel serverSocketChannel;
     List<Client> clientList = new Vector<>();
@@ -202,8 +204,18 @@ public class ServerExample
                 @Override
                 public void completed(Integer result, Object attachment)
                 {
+
                     writeBuffer = ByteBuffer.allocate(10000);
                     writeBuffer.clear();
+                    synchronized (for_inviteRoomProcess)
+                    {
+                        for_inviteRoomProcess.notify();
+                    }
+                    synchronized (for_sendTextProcess)
+                    {
+                        for_sendTextProcess.notify();
+                    }
+
                 }
 
                 @Override
@@ -214,6 +226,14 @@ public class ServerExample
                         logr.severe("[accept fail" + socketChannel.getRemoteAddress()+ " : " + Thread.currentThread().getName()+ "]");
                         clientList.remove(Client.this);
                         socketChannel.close();
+                        synchronized (for_inviteRoomProcess)
+                        {
+                            for_inviteRoomProcess.notify();
+                        }
+                        synchronized (for_sendTextProcess)
+                        {
+                            for_sendTextProcess.notify();
+                        }
                     }
                     catch (IOException e){}
                 }
@@ -322,7 +342,7 @@ public class ServerExample
                     if(client.myRoomList.size() == 0 || client.myCurRoom == null)
                     {
                         send(reqId,0,3,"",ByteBuffer.allocate(0));
-                        return;
+                        return; // 이 for 문 필요없지 않을까..?
                     }
                 }
             }
@@ -338,7 +358,21 @@ public class ServerExample
                 ByteBuffer chatData = ByteBuffer.allocate(1000);
                 chatData.put(text.getBytes(StandardCharsets.UTF_8));
                 chatData.flip();
-                if(client == this) continue;
+                if(client == this)
+                {
+                    synchronized (for_sendTextProcess)
+                    {
+                        try
+                        {
+                            client.send(reqId,0,0,userId,ByteBuffer.allocate(0));
+                            for_sendTextProcess.wait();
+                        } catch (InterruptedException e)
+                        {
+                            e.printStackTrace();
+                        }
+                    }
+                    continue;
+                }
                 client.send(-1,2,0,this.userId,chatData);
             }
         }
@@ -395,9 +429,25 @@ public class ServerExample
                 {
                     if (client.userId.equals(user))
                     {
-                        client.myCurRoom = invited;
-                        client.myRoomList.add(invited);
-                        client.myCurRoom.userList.add(client);
+                        if(client.myCurRoom != invited)
+                        {
+                            client.myCurRoom = invited;
+                            client.myRoomList.add(invited);
+                            client.myCurRoom.userList.add(client);
+                            ByteBuffer roomNumByte = ByteBuffer.allocate(10);
+                            synchronized (for_inviteRoomProcess)
+                            {
+                                try
+                                {
+                                    client.send(-1,0,0,userId,roomNumByte);
+                                    for_inviteRoomProcess.wait();
+                                }
+                                catch (InterruptedException e)
+                                {
+                                    e.printStackTrace();
+                                }
+                            }
+                        }
                     }
                 }
             }
