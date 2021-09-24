@@ -342,7 +342,7 @@ public class ServerExample
                     if(client.myRoomList.size() == 0 || client.myCurRoom == null)
                     {
                         send(reqId,0,3,"",ByteBuffer.allocate(0));
-                        return; // 이 for 문 필요없지 않을까..?
+                        return;
                     }
                 }
             }
@@ -351,7 +351,9 @@ public class ServerExample
             int limit = data.limit();
             data.get(t,0,limit-position);
             String text = new String(removeZero(t),StandardCharsets.UTF_8);
-            myCurRoom.chatLog.add(text);
+            String logText = userId + " : " + text;
+
+            myCurRoom.chatLog.add(logText);
 
             for (Client client : myCurRoom.userList)
             {
@@ -400,7 +402,7 @@ public class ServerExample
             }
             ServerRoomList.add(room);
             ByteBuffer forRoom = ByteBuffer.allocate(10);
-            forRoom.put(intTobyte(roomNum));
+            forRoom.putInt(roomNum);
             forRoom.flip();
             logr.info("[roomName : "+roomName+" roomNum : "+roomNum+" created by "+userId+" ]");
             send(reqId,0,0,"",forRoom);
@@ -435,6 +437,8 @@ public class ServerExample
                             client.myRoomList.add(invited);
                             client.myCurRoom.userList.add(client);
                             ByteBuffer roomNumByte = ByteBuffer.allocate(10);
+                            roomNumByte.putInt(roomNum);
+                            roomNumByte.flip();
                             synchronized (for_inviteRoomProcess)
                             {
                                 try
