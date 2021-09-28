@@ -27,7 +27,7 @@ public class ServerExample
     AsynchronousChannelGroup channelGroup;
     AsynchronousServerSocketChannel serverSocketChannel;
     List<Client> clientList = new Vector<>();
-    List<Room> ServerRoomList = new Vector<>();
+    List<Room> serverRoomList = new Vector<>();
 
     private static void setupLogger()
     {
@@ -396,7 +396,7 @@ public class ServerExample
 
         private void createRoomProcess(int reqId, String userId, ByteBuffer data)
         {
-            int roomNum = ServerRoomList.size();
+            int roomNum = serverRoomList.size();
             byte[] roomNameReceive = new byte[20];
             int position = data.position();
             int limit = data.limit();
@@ -415,7 +415,7 @@ public class ServerExample
                     break;
                 }
             }
-            ServerRoomList.add(room);
+            serverRoomList.add(room);
             ByteBuffer forRoom = ByteBuffer.allocate(10);
             forRoom.putInt(roomNum);
             forRoom.flip();
@@ -426,7 +426,7 @@ public class ServerExample
         void inviteRoomProcess(int reqId, int roomNum, String userId, ByteBuffer data)
         {
             Room invited = null;
-            for (Room room : ServerRoomList)
+            for (Room room : serverRoomList)
             {
                 if (room.roomNum == roomNum)
                 {
@@ -515,7 +515,7 @@ public class ServerExample
 
         void roomListProcess(int reqId, int roomNum, String userId, ByteBuffer data)
         {
-
+            int size = serverRoomList.size();
         }
     }
 
