@@ -194,8 +194,6 @@ public class ServerExample
                 writeBuffer.position(4);
                 writeBuffer.put(intTobyte(broadcastNum));
                 writeBuffer.position(8);
-                writeBuffer.put(userId.getBytes(StandardCharsets.UTF_8));
-                writeBuffer.position(24);
                 writeBuffer.put(leftover);
             }
             writeBuffer.flip();
@@ -268,8 +266,11 @@ public class ServerExample
                 case quitRoom:
                 case inviteRoom:
                     inviteRoomProcess(reqId, roomNum, userId, data);
+                    return;
                 case roomUserList:
                 case roomList:
+                    roomListProcess(reqId,roomNum,userId,data);
+                    return;
             }
         }
 
@@ -369,6 +370,9 @@ public class ServerExample
             for (Client client : currentSender.myCurRoom.userList)
             {
                 ByteBuffer chatData = ByteBuffer.allocate(1000);
+                chatData.putInt(currentSender.myCurRoom.roomNum);
+                chatData.put(currentSender.userId.getBytes(StandardCharsets.UTF_8));
+                chatData.position(20);
                 chatData.put(text.getBytes(StandardCharsets.UTF_8));
                 chatData.flip();
                 if (client == currentSender)
@@ -437,10 +441,8 @@ public class ServerExample
             {
                 byte[] userReceive = new byte[16];
                 data.position(i*16+curPos);
-                int position = data.position();
-                int limit = data.limit();
 
-                data.get(userReceive,0,limit-position);
+                data.get(userReceive,0,16);
                 String user = new String(removeZero(userReceive), StandardCharsets.UTF_8);
                 users[i] = user;
             }
@@ -453,34 +455,67 @@ public class ServerExample
                     {
                         for (Room room : client.myRoomList)
                         {
-                            if (room == invited) continue;
+                            if (room == invited)
+                            {
+                                continue;
+                            }
                         }
                         success = true;
                         client.myCurRoom = invited;
                         client.myRoomList.add(invited);
                         client.myCurRoom.userList.add(client);
-                        ByteBuffer roomNumByte = ByteBuffer.allocate(10);
-                        roomNumByte.putInt(roomNum);
-                        roomNumByte.flip();
-                        if (client.socketChannel != null)
-                        {
-                            synchronized (for_inviteRoomProcess)
-                            {
-                                try
-                                {
-                                    client.send(-1, 0, 0, userId, roomNumByte);
-                                    for_inviteRoomProcess.wait();
-                                } catch (InterruptedException e)
-                                {
-                                    e.printStackTrace();
-                                }
-                            }
-                        }
                     }
                 }
             }
-            if(success) send(reqId, 0, 0, userId, ByteBuffer.allocate(0));
-            else send(reqId,0,1,userId,ByteBuffer.allocate(0));
+            Client invitee = null;
+            for (Client c : clientList)
+            {
+                if(c.userId.equals(userId))
+                {
+                    invitee = c;
+                    for(Client roomUser : invitee.myCurRoom.userList)
+                    {
+                        ByteBuffer infoBuf = ByteBuffer.allocate(1000);
+                        infoBuf.putInt(roomNum);
+                        infoBuf.put(invitee.userId.getBytes(StandardCharsets.UTF_8));
+                        infoBuf.position(20);
+                        int i = 0;
+                        for(i = 0; i<userCount; i++)
+                        {
+                            infoBuf.position(20+16*i);
+                            infoBuf.put(users[i].getBytes(StandardCharsets.UTF_8));
+                        }
+                        infoBuf.position(20+16*i);
+                        infoBuf.flip();
+                        synchronized (for_inviteRoomProcess)
+                        {
+                            try
+                            {
+                                roomUser.send(-1,0,0,userId,infoBuf);
+                                for_inviteRoomProcess.wait();
+                            } catch (InterruptedException e)
+                            {
+                                e.printStackTrace();
+                            }
+                        }
+                    }
+
+                }
+            }
+            if(success)
+            {
+                invitee.send(reqId, 0, 0, userId, ByteBuffer.allocate(0));
+            }
+            else
+            {
+                invitee.send(reqId,0,1,userId,ByteBuffer.allocate(0));
+            }
+
+        }
+
+        void roomListProcess(int reqId, int roomNum, String userId, ByteBuffer data)
+        {
+
         }
     }
 
