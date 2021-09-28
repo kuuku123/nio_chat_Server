@@ -430,12 +430,20 @@ public class ServerExample
                     break;
                 }
             }
-            byte[] userListReceive = new byte[1000];
-            int position = data.position();
-            int limit = data.limit();
-            data.get(userListReceive, 0, limit - position);
-            String userList = new String(removeZero(userListReceive), StandardCharsets.UTF_8);
-            String[] users = userList.split(" ");
+            int userCount = data.getInt();
+            String[] users = new String[userCount];
+            int curPos = data.position();
+            for(int i = 0; i<userCount; i++)
+            {
+                byte[] userReceive = new byte[16];
+                data.position(i*16+curPos);
+                int position = data.position();
+                int limit = data.limit();
+
+                data.get(userReceive,0,limit-position);
+                String user = new String(removeZero(userReceive), StandardCharsets.UTF_8);
+                users[i] = user;
+            }
             boolean success = false;
             for (String user : users)
             {
