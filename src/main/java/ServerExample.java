@@ -1,5 +1,5 @@
 import util.LogFormatter;
-import util.Operation;
+import util.OperationEnum;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -22,6 +22,7 @@ public class ServerExample
     private final static Logger logr = Logger.getGlobal();
     private Object for_inviteRoomProcess = new Object();
     private Object for_sendTextProcess = new Object();
+    private Object for_enterRoomProcess = new Object();
     AsynchronousChannelGroup channelGroup;
     AsynchronousServerSocketChannel serverSocketChannel;
     List<Client> clientList = new Vector<>();
@@ -211,6 +212,10 @@ public class ServerExample
                     {
                         for_sendTextProcess.notify();
                     }
+                    synchronized (for_enterRoomProcess)
+                    {
+                        for_enterRoomProcess.notify();
+                    }
 
                 }
 
@@ -230,6 +235,10 @@ public class ServerExample
                         {
                             for_sendTextProcess.notify();
                         }
+                        synchronized (for_enterRoomProcess)
+                        {
+                            for_enterRoomProcess.notify();
+                        }
                     } catch (IOException e)
                     {
                     }
@@ -240,7 +249,7 @@ public class ServerExample
 
         void processOp(int operation, int reqId, String userId, int roomNum, ByteBuffer data)
         {
-            Operation op = Operation.fromInteger(operation);
+            OperationEnum op = OperationEnum.fromInteger(operation);
             switch (op)
             {
                 case login:
@@ -269,6 +278,11 @@ public class ServerExample
                 case roomList:
                     roomListProcess(reqId,roomNum,userId,data);
                     return;
+                case enterRoom:
+                    enterRoomProcess(reqId,roomNum,userId,data);
+                    return;
+                case enrollFile:
+
             }
         }
 
@@ -362,31 +376,15 @@ public class ServerExample
             int position = data.position();
             int limit = data.limit();
             data.get(t, 0, limit - position);
-
             String text = new String(removeZero(t), StandardCharsets.UTF_8);
+
             int textId = currentSender.myCurRoom.chatLog.size();
             Text newText = new Text(textId, userId, text);
             currentSender.myCurRoom.chatLog.add(newText);
-            Map<String, Integer> readCheck = newText.readCheck;
-            int notRead = 0;
-            for (String s : readCheck.keySet())
-            {
-                if (readCheck.getOrDefault(s,-1) == 0)
-                {
-                    notRead++;
-                }
-            }
+            int notRead = newText.notRoomRead;
 
             for (Client client : currentSender.myCurRoom.userList)
             {
-                ByteBuffer chatData = ByteBuffer.allocate(1000);
-                chatData.putInt(currentSender.myCurRoom.roomNum);
-                chatData.put(currentSender.userId.getBytes(StandardCharsets.UTF_8));
-                chatData.position(20);
-                chatData.putInt(textId);
-                chatData.putInt(notRead);
-                chatData.put(text.getBytes(StandardCharsets.UTF_8));
-                chatData.flip();
                 if (client == currentSender)
                 {
                     synchronized (for_sendTextProcess)
@@ -402,6 +400,16 @@ public class ServerExample
                     }
                     continue;
                 }
+
+                ByteBuffer chatData = ByteBuffer.allocate(1000);
+                chatData.putInt(currentSender.myCurRoom.roomNum);
+                chatData.put(currentSender.userId.getBytes(StandardCharsets.UTF_8));
+                chatData.position(20);
+                chatData.putInt(textId);
+                chatData.putInt(notRead);
+                chatData.putInt(text.length());
+                chatData.put(text.getBytes(StandardCharsets.UTF_8));
+                chatData.flip();
                 if(client.socketChannel != null) client.send(-1, 2, 0, chatData);
             }
         }
@@ -564,6 +572,117 @@ public class ServerExample
             byteBuffer.flip();
             send(reqId,0,0,byteBuffer);
         }
+
+        void enterRoomProcess(int reqId, int roomNum, String userId, ByteBuffer data)
+        {
+            Client sender = null;
+            for(Client c : clientList)
+            {
+                if(c.userId.equals(userId))
+                {
+                    sender = c;
+                    break;
+                }
+            }
+            Room curRoom = null;
+            for(Room r : sender.myRoomList)
+            {
+                if(r.roomNum == roomNum)
+                {
+                    curRoom = r;
+                    myCurRoom = r;
+                    break;
+                }
+            }
+            List<Text> chatLog = curRoom.chatLog;
+            int notRead = 0;
+            List<Text> toSend = new ArrayList<>();
+            for (Text text : chatLog)
+            {
+                Map<String, Integer> readCheck = text.readCheck;
+                if(readCheck.getOrDefault(sender.userId,-1) == 0)
+                {
+                    notRead++;
+                    text.notRoomRead--;
+                    readCheck.put(sender.userId,1);
+                    toSend.add(text);
+                }
+            }
+            boolean everybodyRead = true;
+            for (Text text: chatLog)
+            {
+                if(text.notRoomRead != 0)
+                {
+                    everybodyRead = false;
+                    break;
+                }
+            }
+            if(everybodyRead) chatLog.clear();
+
+            ByteBuffer responseBuf = ByteBuffer.allocate(10000);
+            responseBuf.putInt(notRead);
+            for(int i = 0; i<notRead; i++)
+            {
+                Text text = toSend.get(i);
+                int length = text.text.length();
+                int curPos = responseBuf.position();
+                responseBuf.put(text.sender.getBytes(StandardCharsets.UTF_8));
+                responseBuf.position(curPos+16);
+                int notRoomRead = text.notRoomRead;
+                responseBuf.putInt(text.textId);
+                responseBuf.putInt(notRoomRead);
+                responseBuf.putInt(length);
+                responseBuf.put(text.text.getBytes(StandardCharsets.UTF_8));
+            }
+            responseBuf.flip();
+
+            synchronized (for_enterRoomProcess)
+            {
+                try
+                {
+                    send(reqId,0,0,responseBuf);
+                    for_enterRoomProcess.wait();
+                } catch (InterruptedException e)
+                {
+                    e.printStackTrace();
+                }
+            }
+
+            ByteBuffer enterRoomBroadcast = ByteBuffer.allocate(1000);
+            enterRoomBroadcast.putInt(roomNum);
+            enterRoomBroadcast.put(userId.getBytes(StandardCharsets.UTF_8));
+            enterRoomBroadcast.position(20);
+            if (toSend.size() > 0)
+            {
+                enterRoomBroadcast.putInt(toSend.get(0).textId);
+                enterRoomBroadcast.putInt(toSend.get(toSend.size()-1).textId);
+            }
+            else if(toSend.size() == 0)
+            {
+                enterRoomBroadcast.putInt(-1);
+                enterRoomBroadcast.putInt(-1);
+            }
+            enterRoomBroadcast.flip();
+            for(int i = 0; i<curRoom.userList.size(); i++)
+            {
+                Client client = curRoom.userList.get(i);
+                synchronized (for_enterRoomProcess)
+                {
+                    if(client.socketChannel != null)
+                    {
+                        try
+                        {
+                            sender.send(-1,5,0,enterRoomBroadcast);
+                            for_enterRoomProcess.wait();
+                        } catch (InterruptedException e)
+                        {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+            }
+
+        }
     }
 
     class Room
@@ -586,6 +705,7 @@ public class ServerExample
         String sender;
         String text;
         Map<String,Integer> readCheck = new HashMap<>();
+        int notRoomRead = 0;
 
         public Text(int textId, String sender, String text)
         {
@@ -599,7 +719,11 @@ public class ServerExample
                     for(Client user : c.myCurRoom.userList)
                     {
                         if (user.socketChannel != null) readCheck.put(user.userId,1);
-                        else readCheck.put(user.userId,0);
+                        else
+                        {
+                            readCheck.put(user.userId,0);
+                            notRoomRead++;
+                        }
                     }
                 }
             }

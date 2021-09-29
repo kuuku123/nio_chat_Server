@@ -1,10 +1,11 @@
 package util;
 
-public enum Operation
+public enum OperationEnum
 {
-    login , logout, sendText,fileUpload, fileList,fileDownload,fileDelete, createRoom, quitRoom,inviteRoom, roomUserList , roomList;
+    login , logout, sendText,fileUpload, fileList,fileDownload,fileDelete, createRoom,
+    quitRoom,inviteRoom, roomUserList , roomList, enterRoom, enrollFile;
 
-    public static Operation fromInteger(int x)
+    public static OperationEnum fromInteger(int x)
     {
         switch (x)
         {
@@ -32,6 +33,10 @@ public enum Operation
                 return roomUserList;
             case 11:
                 return roomList;
+            case 12:
+                return enterRoom;
+            case 13:
+                return enrollFile;
         }
         return null;
     }
