@@ -398,7 +398,6 @@ public class ServerExample
                             e.printStackTrace();
                         }
                     }
-                    continue;
                 }
 
                 ByteBuffer chatData = ByteBuffer.allocate(1000);
@@ -410,7 +409,21 @@ public class ServerExample
                 chatData.putInt(text.length());
                 chatData.put(text.getBytes(StandardCharsets.UTF_8));
                 chatData.flip();
-                if(client.socketChannel != null) client.send(-1, 2, 0, chatData);
+                if(client.socketChannel != null)
+                {
+                    synchronized (for_sendTextProcess)
+                    {
+                        try
+                        {
+                            client.send(-1, 2, 0, chatData);
+                            for_sendTextProcess.wait();
+                        } catch(InterruptedException e)
+                        {
+                            e.printStackTrace();
+                        }
+                    }
+
+                }
             }
         }
 
@@ -619,6 +632,42 @@ public class ServerExample
             }
             if(everybodyRead) chatLog.clear();
 
+
+            for(int i = 0; i<curRoom.userList.size(); i++)
+            {
+                ByteBuffer enterRoomBroadcast = ByteBuffer.allocate(1000);
+                enterRoomBroadcast.putInt(roomNum);
+                enterRoomBroadcast.put(userId.getBytes(StandardCharsets.UTF_8));
+                enterRoomBroadcast.position(20);
+                if (toSend.size() > 0)
+                {
+                    enterRoomBroadcast.putInt(toSend.get(0).textId);
+                    enterRoomBroadcast.putInt(toSend.get(toSend.size()-1).textId);
+                }
+                else if(toSend.size() == 0)
+                {
+                    enterRoomBroadcast.putInt(-1);
+                    enterRoomBroadcast.putInt(-1);
+                }
+                enterRoomBroadcast.flip();
+                Client client = curRoom.userList.get(i);
+                synchronized (for_enterRoomProcess)
+                {
+                    if(client.socketChannel != null)
+                    {
+                        if(client.userId.equals(sender.userId)) continue;
+                        try
+                        {
+                            client.send(-1,5,0,enterRoomBroadcast);
+                            for_enterRoomProcess.wait();
+                        } catch (InterruptedException e)
+                        {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+            }
+
             ByteBuffer responseBuf = ByteBuffer.allocate(10000);
             responseBuf.putInt(notRead);
             for(int i = 0; i<notRead; i++)
@@ -648,39 +697,6 @@ public class ServerExample
                 }
             }
 
-            ByteBuffer enterRoomBroadcast = ByteBuffer.allocate(1000);
-            enterRoomBroadcast.putInt(roomNum);
-            enterRoomBroadcast.put(userId.getBytes(StandardCharsets.UTF_8));
-            enterRoomBroadcast.position(20);
-            if (toSend.size() > 0)
-            {
-                enterRoomBroadcast.putInt(toSend.get(0).textId);
-                enterRoomBroadcast.putInt(toSend.get(toSend.size()-1).textId);
-            }
-            else if(toSend.size() == 0)
-            {
-                enterRoomBroadcast.putInt(-1);
-                enterRoomBroadcast.putInt(-1);
-            }
-            enterRoomBroadcast.flip();
-            for(int i = 0; i<curRoom.userList.size(); i++)
-            {
-                Client client = curRoom.userList.get(i);
-                synchronized (for_enterRoomProcess)
-                {
-                    if(client.socketChannel != null)
-                    {
-                        try
-                        {
-                            sender.send(-1,5,0,enterRoomBroadcast);
-                            for_enterRoomProcess.wait();
-                        } catch (InterruptedException e)
-                        {
-                            e.printStackTrace();
-                        }
-                    }
-                }
-            }
 
         }
     }
