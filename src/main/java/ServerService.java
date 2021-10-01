@@ -27,6 +27,7 @@ public class ServerService
     AsynchronousServerSocketChannel serverSocketChannel;
     List<Client> clientList = new Vector<>();
     List<Room> serverRoomList = new Vector<>();
+    List<RemoteRoomServer> remoteRoomSeverList = new Vector<>();
     private int global_textId = -1;
 
     private static void setupLogger()
@@ -64,18 +65,30 @@ public class ServerService
             @Override
             public void completed(AsynchronousSocketChannel socketChannel, Void attachment)
             {
+                String portInfo = "";
                 try
                 {
+                    portInfo = socketChannel.getRemoteAddress().toString();
                     logr.info("[연결 수락: " + socketChannel.getRemoteAddress() + ": " + Thread.currentThread().getName() + "]");
                 } catch (IOException e)
                 {
                     logr.severe("[Client 연결 도중에 끊김 accept IOException fail]");
                 }
-
-                Client client = new Client(socketChannel);
-                clientList.add(client);
-                logr.info("[연결 개수: " + clientList.size() + "]");
-
+                String[] portInfos = portInfo.split(":");
+                int port = Integer.parseInt( portInfos[1]);
+                if(port == 10001 || port == 10002)
+                {
+                    RemoteRoomServer remoteRoomServer = new RemoteRoomServer(socketChannel, port);
+                    remoteRoomSeverList.add(remoteRoomServer);
+                    logr.info("[remote RoomServer port :"+port + " connected]");
+                    logr.info("[remote RoomServer 연결 개수: " + remoteRoomSeverList.size() + "]");
+                }
+                else
+                {
+                    Client client = new Client(socketChannel);
+                    clientList.add(client);
+                    logr.info("[연결 개수: " + clientList.size() + "]");
+                }
                 serverSocketChannel.accept(null, this);
             }
 
@@ -755,6 +768,73 @@ public class ServerService
                 }
             }
         }
+    }
+
+    class RemoteRoomServer
+    {
+        ByteBuffer remoteReadBuf = ByteBuffer.allocate(10000);
+        AsynchronousSocketChannel remoteRoomServerChannel;
+        int ip0;
+        int ip1;
+        int ip2;
+        int ip3;
+        int port;
+
+        public RemoteRoomServer(AsynchronousSocketChannel remoteRoomServerChannel, int port)
+        {
+            this.remoteRoomServerChannel = remoteRoomServerChannel;
+            this.port = port;
+            receive();
+        }
+
+        void receive()
+        {
+            remoteRoomServerChannel.read(remoteReadBuf, remoteReadBuf, new CompletionHandler<Integer, ByteBuffer>()
+            {
+                @Override
+                public void completed(Integer result, ByteBuffer attachment)
+                {
+
+
+                    remoteReadBuf = ByteBuffer.allocate(10000);
+                    remoteReadBuf.clear();
+                    remoteRoomServerChannel.read(remoteReadBuf, remoteReadBuf, this);
+                }
+
+                @Override
+                public void failed(Throwable exc, ByteBuffer attachment)
+                {
+                    String portInfo = "";
+                    try
+                    {
+                        portInfo = remoteRoomServerChannel.getRemoteAddress().toString();
+                        logr.severe("[Remote RoomServer receive fail" + remoteRoomServerChannel.getRemoteAddress() + " : " + Thread.currentThread().getName() + "]");
+                        String[] portInfos = portInfo.split(":");
+                        int port = Integer.parseInt(portInfos[1]);
+                        if(port == 10001 || port == 10002)
+                        {
+                            for(int i = 0; i<remoteRoomSeverList.size(); i++)
+                            {
+                                RemoteRoomServer remoteRoomServer = remoteRoomSeverList.get(i);
+                                if(remoteRoomServer.port == port)
+                                {
+                                    remoteRoomServer.remoteRoomServerChannel.close();
+                                    remoteRoomSeverList.remove(remoteRoomServer);
+                                    logr.info("[remote room server port : "+port+" removed]");
+                                    logr.info("[remote RoomServer 연결 개수: " + remoteRoomSeverList.size() + "]");
+                                    break;
+                                }
+                            }
+                        }
+                    } catch (IOException e)
+                    {
+                    }
+
+                }
+            });
+        }
+
+
     }
 
 
