@@ -292,7 +292,7 @@ public class ServerService
 
         private void loginProcess(int reqId,int operation, String userId, ByteBuffer data)
         {
-            ByteBuffer roomNumByte = ByteBuffer.allocate(4);
+            ByteBuffer addressesBuf = ByteBuffer.allocate(1000);
             if (userId != null)
             {
                 for (Client client : clientList)
@@ -311,29 +311,29 @@ public class ServerService
                             Client newClient = clientList.get(clientList.size() - 1);
                             client.socketChannel = newClient.socketChannel;
                             clientList.remove(newClient);
+                            int totalRoomNum = client.myRoomList.size();
+                            addressesBuf.putInt(totalRoomNum);
+                            for(int i = 0; i<totalRoomNum; i++)
+                            {
+                                Room room = client.myRoomList.get(i);
+                                addressesBuf.putInt(room.ip0);
+                                addressesBuf.putInt(room.ip1);
+                                addressesBuf.putInt(room.ip2);
+                                addressesBuf.putInt(room.ip3);
+                                addressesBuf.putInt(room.port);
+                            }
 
-                            if (client.myCurRoom != null)
-                            {
-                                roomNumByte.putInt(client.myCurRoom.roomNum);
-                            }
-                            else if (client.myCurRoom == null)
-                            {
-                                roomNumByte.putInt(-2);
-                            }
-                            roomNumByte.flip();
-                            send(reqId,operation, 0, 0, roomNumByte);
+                            send(reqId,operation, 0, 0, addressesBuf);
                             logr.info("[연결 개수: " + clientList.size() + "]");
                             logr.info(userId + " 재로그인 성공");
                         }
                         return;
                     }
                 }
-                roomNumByte.putInt(-2);
-                roomNumByte.flip();
                 Client client1 = clientList.get(clientList.size() - 1);
                 client1.userId = userId;
                 logr.info(userId + " logged in");
-                send(reqId,operation, 0, 0, roomNumByte);
+                send(reqId,operation, 0, 0, addressesBuf);
 
             } else send(reqId,operation ,0, -1, ByteBuffer.allocate(0));
         }
@@ -712,6 +712,11 @@ public class ServerService
         String roomName;
         List<Client> userList = new Vector<>();
         List<Text> chatLog = new ArrayList<>();
+        int ip0;
+        int ip1;
+        int ip2;
+        int ip3;
+        int port;
 
         Room(int roomNum)
         {
