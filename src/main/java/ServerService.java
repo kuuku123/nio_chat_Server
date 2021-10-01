@@ -322,7 +322,7 @@ public class ServerService
                                 addressesBuf.putInt(room.ip3);
                                 addressesBuf.putInt(room.port);
                             }
-
+                            addressesBuf.flip();
                             send(reqId,operation, 0, 0, addressesBuf);
                             logr.info("[연결 개수: " + clientList.size() + "]");
                             logr.info(userId + " 재로그인 성공");
@@ -330,6 +330,7 @@ public class ServerService
                         return;
                     }
                 }
+                addressesBuf.flip();
                 Client client1 = clientList.get(clientList.size() - 1);
                 client1.userId = userId;
                 logr.info(userId + " logged in");
