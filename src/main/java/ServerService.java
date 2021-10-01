@@ -515,13 +515,15 @@ public class ServerService
                         infoBuf.putInt(roomNum);
                         infoBuf.put(invitee.userId.getBytes(StandardCharsets.UTF_8));
                         infoBuf.position(20);
+                        infoBuf.putInt(userCount);
+                        int curPos0 = infoBuf.position();
                         int i = 0;
                         for(i = 0; i<userCount; i++)
                         {
-                            infoBuf.position(20+16*i);
+                            infoBuf.position(curPos0+16*i);
                             infoBuf.put(users[i].getBytes(StandardCharsets.UTF_8));
                         }
-                        infoBuf.position(20+16*i);
+                        infoBuf.position(curPos0+16*i);
                         infoBuf.flip();
                         synchronized (for_inviteRoomProcess)
                         {
