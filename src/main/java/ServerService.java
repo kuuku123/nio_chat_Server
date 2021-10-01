@@ -1,4 +1,6 @@
+import util.ElseProcess;
 import util.LogFormatter;
+import util.MyLog;
 import util.OperationEnum;
 
 import java.io.IOException;
@@ -12,14 +14,13 @@ import java.nio.channels.CompletionHandler;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.Executors;
-import java.util.logging.ConsoleHandler;
-import java.util.logging.Level;
-import java.util.logging.LogManager;
 import java.util.logging.Logger;
+
+import static util.ElseProcess.*;
 
 public class ServerService
 {
-    private final static Logger logr = Logger.getGlobal();
+    private Logger logr;
     private Object for_inviteRoomProcess = new Object();
     private Object for_sendTextProcess = new Object();
     private Object for_enterRoomProcess = new Object();
@@ -30,16 +31,9 @@ public class ServerService
     List<RemoteRoomServer> remoteRoomSeverList = new Vector<>();
     private int global_textId = -1;
 
-    private static void setupLogger()
+    public ServerService(Logger logr)
     {
-        LogFormatter formatter = new LogFormatter();
-        LogManager.getLogManager().reset();
-        logr.setLevel(Level.ALL);
-
-        ConsoleHandler ch = new ConsoleHandler();
-        ch.setLevel(Level.INFO);
-        ch.setFormatter(formatter);
-        logr.addHandler(ch);
+        this.logr = logr;
     }
 
     void startServer()
@@ -75,15 +69,14 @@ public class ServerService
                     logr.severe("[Client 연결 도중에 끊김 accept IOException fail]");
                 }
                 String[] portInfos = portInfo.split(":");
-                int port = Integer.parseInt( portInfos[1]);
-                if(port == 10001 || port == 10002)
+                int port = Integer.parseInt(portInfos[1]);
+                if (port == 10001 || port == 10002)
                 {
                     RemoteRoomServer remoteRoomServer = new RemoteRoomServer(socketChannel, port);
                     remoteRoomSeverList.add(remoteRoomServer);
-                    logr.info("[remote RoomServer port :"+port + " connected]");
+                    logr.info("[remote RoomServer port :" + port + " connected]");
                     logr.info("[remote RoomServer 연결 개수: " + remoteRoomSeverList.size() + "]");
-                }
-                else
+                } else
                 {
                     Client client = new Client(socketChannel);
                     clientList.add(client);
@@ -161,7 +154,6 @@ public class ServerService
                         logr.info("[요청 처리: " + socketChannel.getRemoteAddress() + ": " + Thread.currentThread().getName() + "]");
                         processOp(reqNum, reqId, userId, roomNum, attachment);
 
-//                        for(Client client : connections) client.send(data);
                         readBuffer = ByteBuffer.allocate(10000);
                         readBuffer.clear();
                         if (socketChannel != null) socketChannel.read(readBuffer, readBuffer, this);
@@ -192,7 +184,7 @@ public class ServerService
 
         }
 
-        void send(int reqId,int operation, int broadcastNum, int result, ByteBuffer leftover)
+        void send(int reqId, int operation, int broadcastNum, int result, ByteBuffer leftover)
         {
             if (reqId != -1)
             {
@@ -269,33 +261,33 @@ public class ServerService
             switch (op)
             {
                 case login:
-                    loginProcess(reqId,operation, userId, data);
+                    loginProcess(reqId, operation, userId, data);
                     logr.info("login process completed");
                     return;
                 case logout:
-                    logoutProcess(reqId,operation, userId, data);
+                    logoutProcess(reqId, operation, userId, data);
                     logr.info("logout process completed");
                     return;
                 case sendText:
-                    sendTextProcess(reqId,operation, userId, data);
+                    sendTextProcess(reqId, operation, userId, data);
                     return;
                 case fileUpload:
                 case fileList:
                 case fileDownload:
                 case fileDelete:
                 case createRoom:
-                    createRoomProcess(reqId,operation ,userId, data);
+                    createRoomProcess(reqId, operation, userId, data);
                     return;
                 case quitRoom:
                 case inviteRoom:
-                    inviteRoomProcess(reqId,operation ,roomNum, userId, data);
+                    inviteRoomProcess(reqId, operation, roomNum, userId, data);
                     return;
                 case roomUserList:
                 case roomList:
-                    roomListProcess(reqId,operation,roomNum,userId,data);
+                    roomListProcess(reqId, operation, roomNum, userId, data);
                     return;
                 case enterRoom:
-                    enterRoomProcess(reqId,operation,roomNum,userId,data);
+                    enterRoomProcess(reqId, operation, roomNum, userId, data);
                     return;
                 case enrollFile:
 
@@ -303,7 +295,7 @@ public class ServerService
         }
 
 
-        private void loginProcess(int reqId,int operation, String userId, ByteBuffer data)
+        private void loginProcess(int reqId, int operation, String userId, ByteBuffer data)
         {
             ByteBuffer addressesBuf = ByteBuffer.allocate(1000);
             if (userId != null)
@@ -316,17 +308,16 @@ public class ServerService
                         {
                             Client newClient = clientList.get(clientList.size() - 1);
                             clientList.remove(newClient);
-                            send(reqId,operation, 0, 4, ByteBuffer.allocate(0));
+                            send(reqId, operation, 0, 4, ByteBuffer.allocate(0));
                             logr.info(userId + " already exist");
-                        }
-                        else if (client.socketChannel == null) // 현재 자신이 속한 방 상태를 알려줌
+                        } else if (client.socketChannel == null) // 현재 자신이 속한 방 상태를 알려줌
                         {
                             Client newClient = clientList.get(clientList.size() - 1);
                             client.socketChannel = newClient.socketChannel;
                             clientList.remove(newClient);
                             int totalRoomNum = client.myRoomList.size();
                             addressesBuf.putInt(totalRoomNum);
-                            for(int i = 0; i<totalRoomNum; i++)
+                            for (int i = 0; i < totalRoomNum; i++)
                             {
                                 Room room = client.myRoomList.get(i);
                                 addressesBuf.putInt(room.ip0);
@@ -336,7 +327,7 @@ public class ServerService
                                 addressesBuf.putInt(room.port);
                             }
                             addressesBuf.flip();
-                            send(reqId,operation, 0, 0, addressesBuf);
+                            send(reqId, operation, 0, 0, addressesBuf);
                             logr.info("[연결 개수: " + clientList.size() + "]");
                             logr.info(userId + " 재로그인 성공");
                         }
@@ -347,12 +338,12 @@ public class ServerService
                 Client client1 = clientList.get(clientList.size() - 1);
                 client1.userId = userId;
                 logr.info(userId + " logged in");
-                send(reqId,operation, 0, 0, addressesBuf);
+                send(reqId, operation, 0, 0, addressesBuf);
 
-            } else send(reqId,operation ,0, -1, ByteBuffer.allocate(0));
+            } else send(reqId, operation, 0, -1, ByteBuffer.allocate(0));
         }
 
-        private void logoutProcess(int reqid,int operation, String userId, ByteBuffer data)
+        private void logoutProcess(int reqid, int operation, String userId, ByteBuffer data)
         {
             for (Client client : clientList)
             {
@@ -361,7 +352,7 @@ public class ServerService
                     try
                     {
                         logr.info(userId + " logged out , connection info deleted");
-                        send(reqid,operation, 0, 0, ByteBuffer.allocate(0));
+                        send(reqid, operation, 0, 0, ByteBuffer.allocate(0));
 //                        client.socketChannel.close();
                         client.socketChannel = null;
                         return;
@@ -371,10 +362,10 @@ public class ServerService
                     }
                 }
             }
-            send(reqid,operation, 0, 1, ByteBuffer.allocate(0));
+            send(reqid, operation, 0, 1, ByteBuffer.allocate(0));
         }
 
-        private void sendTextProcess(int reqId,int operation ,String userId, ByteBuffer data)
+        private void sendTextProcess(int reqId, int operation, String userId, ByteBuffer data)
         {
             Client currentSender = null;
             for (Client client : clientList)
@@ -384,7 +375,7 @@ public class ServerService
                     currentSender = client;
                     if (client.myRoomList.size() == 0 || client.myCurRoom == null)
                     {
-                        send(reqId,operation, 0, 3, ByteBuffer.allocate(0));
+                        send(reqId, operation, 0, 3, ByteBuffer.allocate(0));
                         return;
                     }
                 }
@@ -408,7 +399,7 @@ public class ServerService
                     {
                         try
                         {
-                            client.send(reqId,operation, 0, 0, ByteBuffer.allocate(0));
+                            client.send(reqId, operation, 0, 0, ByteBuffer.allocate(0));
                             for_sendTextProcess.wait();
                         } catch (InterruptedException e)
                         {
@@ -426,15 +417,15 @@ public class ServerService
                 chatData.putInt(text.length());
                 chatData.put(text.getBytes(StandardCharsets.UTF_8));
                 chatData.flip();
-                if(client.socketChannel != null)
+                if (client.socketChannel != null)
                 {
                     synchronized (for_sendTextProcess)
                     {
                         try
                         {
-                            client.send(-1,operation, 2, 0, chatData);
+                            client.send(-1, operation, 2, 0, chatData);
                             for_sendTextProcess.wait();
-                        } catch(InterruptedException e)
+                        } catch (InterruptedException e)
                         {
                             e.printStackTrace();
                         }
@@ -444,7 +435,7 @@ public class ServerService
             }
         }
 
-        private void createRoomProcess(int reqId,int operation, String userId, ByteBuffer data)
+        private void createRoomProcess(int reqId, int operation, String userId, ByteBuffer data)
         {
             int roomNum = serverRoomList.size();
             byte[] roomNameReceive = new byte[20];
@@ -470,10 +461,10 @@ public class ServerService
             forRoom.putInt(roomNum);
             forRoom.flip();
             logr.info("[roomName : " + roomName + " roomNum : " + roomNum + " created by " + userId + " ]");
-            send(reqId,operation, 0, 0, forRoom);
+            send(reqId, operation, 0, 0, forRoom);
         }
 
-        void inviteRoomProcess(int reqId,int operation ,int roomNum, String userId, ByteBuffer data)
+        void inviteRoomProcess(int reqId, int operation, int roomNum, String userId, ByteBuffer data)
         {
             Room invited = null;
             for (Room room : serverRoomList)
@@ -487,12 +478,12 @@ public class ServerService
             int userCount = data.getInt();
             String[] users = new String[userCount];
             int curPos = data.position();
-            for(int i = 0; i<userCount; i++)
+            for (int i = 0; i < userCount; i++)
             {
                 byte[] userReceive = new byte[16];
-                data.position(i*16+curPos);
+                data.position(i * 16 + curPos);
 
-                data.get(userReceive,0,16);
+                data.get(userReceive, 0, 16);
                 String user = new String(removeZero(userReceive), StandardCharsets.UTF_8);
                 users[i] = user;
             }
@@ -520,10 +511,10 @@ public class ServerService
             Client invitee = null;
             for (Client c : clientList)
             {
-                if(c.userId.equals(userId))
+                if (c.userId.equals(userId))
                 {
                     invitee = c;
-                    for(Client roomUser : invitee.myCurRoom.userList)
+                    for (Client roomUser : invitee.myCurRoom.userList)
                     {
                         ByteBuffer infoBuf = ByteBuffer.allocate(1000);
                         infoBuf.putInt(roomNum);
@@ -532,18 +523,18 @@ public class ServerService
                         infoBuf.putInt(userCount);
                         int curPos0 = infoBuf.position();
                         int i = 0;
-                        for(i = 0; i<userCount; i++)
+                        for (i = 0; i < userCount; i++)
                         {
-                            infoBuf.position(curPos0+16*i);
+                            infoBuf.position(curPos0 + 16 * i);
                             infoBuf.put(users[i].getBytes(StandardCharsets.UTF_8));
                         }
-                        infoBuf.position(curPos0+16*i);
+                        infoBuf.position(curPos0 + 16 * i);
                         infoBuf.flip();
                         synchronized (for_inviteRoomProcess)
                         {
                             try
                             {
-                                roomUser.send(-1,operation,0,0, infoBuf);
+                                roomUser.send(-1, operation, 0, 0, infoBuf);
                                 for_inviteRoomProcess.wait();
                             } catch (InterruptedException e)
                             {
@@ -554,23 +545,22 @@ public class ServerService
 
                 }
             }
-            if(success)
+            if (success)
             {
-                invitee.send(reqId,operation, 0, 0, ByteBuffer.allocate(0));
-            }
-            else
+                invitee.send(reqId, operation, 0, 0, ByteBuffer.allocate(0));
+            } else
             {
-                invitee.send(reqId,operation,0,1, ByteBuffer.allocate(0));
+                invitee.send(reqId, operation, 0, 1, ByteBuffer.allocate(0));
             }
 
         }
 
-        void roomListProcess(int reqId,int operation, int roomNum, String userId, ByteBuffer data)
+        void roomListProcess(int reqId, int operation, int roomNum, String userId, ByteBuffer data)
         {
             Client sender = null;
-            for(Client c : clientList)
+            for (Client c : clientList)
             {
-                if(c.userId.equals(userId))
+                if (c.userId.equals(userId))
                 {
                     sender = c;
                     break;
@@ -579,47 +569,47 @@ public class ServerService
             int size = sender.myRoomList.size();
             ByteBuffer byteBuffer = ByteBuffer.allocate(10000);
             byteBuffer.putInt(size);
-            for(int i = 0; i<size; i++)
+            for (int i = 0; i < size; i++)
             {
                 Room room = sender.myRoomList.get(i);
                 int roomNum1 = room.roomNum;
                 String roomName = room.roomName;
                 int userSize = room.userList.size();
                 int notRead = 0;
-                for (int j = 0; j<room.chatLog.size(); j++)
+                for (int j = 0; j < room.chatLog.size(); j++)
                 {
                     Text text = room.chatLog.get(j);
                     Integer check = text.readCheck.getOrDefault(userId, -1);
-                    if ( check == 0) notRead++;
+                    if (check == 0) notRead++;
                 }
                 byteBuffer.putInt(roomNum1);
                 int prevPos = byteBuffer.position();
                 byteBuffer.put(roomName.getBytes(StandardCharsets.UTF_8));
                 int curPos = byteBuffer.position();
-                int plusPos = 16 - (curPos-prevPos);
-                byteBuffer.position(curPos+plusPos);
+                int plusPos = 16 - (curPos - prevPos);
+                byteBuffer.position(curPos + plusPos);
                 byteBuffer.putInt(userSize);
                 byteBuffer.putInt(notRead);
             }
             byteBuffer.flip();
-            send(reqId,operation,0,0,byteBuffer);
+            send(reqId, operation, 0, 0, byteBuffer);
         }
 
-        void enterRoomProcess(int reqId,int operation, int roomNum, String userId, ByteBuffer data)
+        void enterRoomProcess(int reqId, int operation, int roomNum, String userId, ByteBuffer data)
         {
             Client sender = null;
-            for(Client c : clientList)
+            for (Client c : clientList)
             {
-                if(c.userId.equals(userId))
+                if (c.userId.equals(userId))
                 {
                     sender = c;
                     break;
                 }
             }
             Room curRoom = null;
-            for(Room r : sender.myRoomList)
+            for (Room r : sender.myRoomList)
             {
-                if(r.roomNum == roomNum)
+                if (r.roomNum == roomNum)
                 {
                     curRoom = r;
                     myCurRoom = r;
@@ -632,27 +622,27 @@ public class ServerService
             for (Text text : chatLog)
             {
                 Map<String, Integer> readCheck = text.readCheck;
-                if(readCheck.getOrDefault(sender.userId,-1) == 0)
+                if (readCheck.getOrDefault(sender.userId, -1) == 0)
                 {
                     notRead++;
                     text.notRoomRead--;
-                    readCheck.put(sender.userId,1);
+                    readCheck.put(sender.userId, 1);
                     toSend.add(text);
                 }
             }
             boolean everybodyRead = true;
-            for (Text text: chatLog)
+            for (Text text : chatLog)
             {
-                if(text.notRoomRead != 0)
+                if (text.notRoomRead != 0)
                 {
                     everybodyRead = false;
                     break;
                 }
             }
-            if(everybodyRead) chatLog.clear();
+            if (everybodyRead) chatLog.clear();
 
 
-            for(int i = 0; i<curRoom.userList.size(); i++)
+            for (int i = 0; i < curRoom.userList.size(); i++)
             {
                 ByteBuffer enterRoomBroadcast = ByteBuffer.allocate(1000);
                 enterRoomBroadcast.putInt(roomNum);
@@ -661,9 +651,8 @@ public class ServerService
                 if (toSend.size() > 0)
                 {
                     enterRoomBroadcast.putInt(toSend.get(0).textId);
-                    enterRoomBroadcast.putInt(toSend.get(toSend.size()-1).textId);
-                }
-                else if(toSend.size() == 0)
+                    enterRoomBroadcast.putInt(toSend.get(toSend.size() - 1).textId);
+                } else if (toSend.size() == 0)
                 {
                     enterRoomBroadcast.putInt(-1);
                     enterRoomBroadcast.putInt(-1);
@@ -672,12 +661,12 @@ public class ServerService
                 Client client = curRoom.userList.get(i);
                 synchronized (for_enterRoomProcess)
                 {
-                    if(client.socketChannel != null)
+                    if (client.socketChannel != null)
                     {
-                        if(client.userId.equals(sender.userId)) continue;
+                        if (client.userId.equals(sender.userId)) continue;
                         try
                         {
-                            client.send(-1,operation,5,0,enterRoomBroadcast);
+                            client.send(-1, operation, 5, 0, enterRoomBroadcast);
                             for_enterRoomProcess.wait();
                         } catch (InterruptedException e)
                         {
@@ -689,13 +678,13 @@ public class ServerService
 
             ByteBuffer responseBuf = ByteBuffer.allocate(10000);
             responseBuf.putInt(notRead);
-            for(int i = 0; i<notRead; i++)
+            for (int i = 0; i < notRead; i++)
             {
                 Text text = toSend.get(i);
                 int length = text.text.length();
                 int curPos = responseBuf.position();
                 responseBuf.put(text.sender.getBytes(StandardCharsets.UTF_8));
-                responseBuf.position(curPos+16);
+                responseBuf.position(curPos + 16);
                 int notRoomRead = text.notRoomRead;
                 responseBuf.putInt(text.textId);
                 responseBuf.putInt(notRoomRead);
@@ -708,7 +697,7 @@ public class ServerService
             {
                 try
                 {
-                    send(reqId,operation,0,0,responseBuf);
+                    send(reqId, operation, 0, 0, responseBuf);
                     for_enterRoomProcess.wait();
                 } catch (InterruptedException e)
                 {
@@ -744,7 +733,7 @@ public class ServerService
         int textId;
         String sender;
         String text;
-        Map<String,Integer> readCheck = new HashMap<>();
+        Map<String, Integer> readCheck = new HashMap<>();
         int notRoomRead = 0;
 
         public Text(int textId, String sender, String text)
@@ -752,16 +741,16 @@ public class ServerService
             this.textId = textId;
             this.sender = sender;
             this.text = text;
-            for(Client c : clientList)
+            for (Client c : clientList)
             {
-                if(c.userId.equals(sender))
+                if (c.userId.equals(sender))
                 {
-                    for(Client user : c.myCurRoom.userList)
+                    for (Client user : c.myCurRoom.userList)
                     {
-                        if (user.socketChannel != null) readCheck.put(user.userId,1);
+                        if (user.socketChannel != null) readCheck.put(user.userId, 1);
                         else
                         {
-                            readCheck.put(user.userId,0);
+                            readCheck.put(user.userId, 0);
                             notRoomRead++;
                         }
                     }
@@ -794,8 +783,6 @@ public class ServerService
                 @Override
                 public void completed(Integer result, ByteBuffer attachment)
                 {
-
-
                     remoteReadBuf = ByteBuffer.allocate(10000);
                     remoteReadBuf.clear();
                     remoteRoomServerChannel.read(remoteReadBuf, remoteReadBuf, this);
@@ -811,16 +798,16 @@ public class ServerService
                         logr.severe("[Remote RoomServer receive fail" + remoteRoomServerChannel.getRemoteAddress() + " : " + Thread.currentThread().getName() + "]");
                         String[] portInfos = portInfo.split(":");
                         int port = Integer.parseInt(portInfos[1]);
-                        if(port == 10001 || port == 10002)
+                        if (port == 10001 || port == 10002)
                         {
-                            for(int i = 0; i<remoteRoomSeverList.size(); i++)
+                            for (int i = 0; i < remoteRoomSeverList.size(); i++)
                             {
                                 RemoteRoomServer remoteRoomServer = remoteRoomSeverList.get(i);
-                                if(remoteRoomServer.port == port)
+                                if (remoteRoomServer.port == port)
                                 {
                                     remoteRoomServer.remoteRoomServerChannel.close();
                                     remoteRoomSeverList.remove(remoteRoomServer);
-                                    logr.info("[remote room server port : "+port+" removed]");
+                                    logr.info("[remote room server port : " + port + " removed]");
                                     logr.info("[remote RoomServer 연결 개수: " + remoteRoomSeverList.size() + "]");
                                     break;
                                 }
@@ -829,7 +816,6 @@ public class ServerService
                     } catch (IOException e)
                     {
                     }
-
                 }
             });
         }
@@ -837,53 +823,10 @@ public class ServerService
 
     }
 
-
-    public byte[] intToByte(int value)
-    {
-        byte[] bytes = new byte[4];
-        bytes[0] = (byte) ((value & 0xFF000000) >> 24);
-        bytes[1] = (byte) ((value & 0x00FF0000) >> 16);
-        bytes[2] = (byte) ((value & 0x0000FF00) >> 8);
-        bytes[3] = (byte) (value & 0x000000FF);
-
-        return bytes;
-
-    }
-
-    public int byteToInt(byte[] src)
-    {
-
-        int newValue = 0;
-
-        newValue |= (((int) src[0]) << 24) & 0xFF000000;
-        newValue |= (((int) src[1]) << 16) & 0xFF0000;
-        newValue |= (((int) src[2]) << 8) & 0xFF00;
-        newValue |= (((int) src[3])) & 0xFF;
-
-
-        return newValue;
-    }
-
-    private byte[] removeZero(byte[] reqUserId)
-    {
-        int count = 0;
-        for (byte b : reqUserId)
-        {
-            if (b == (byte) 0) count++;
-        }
-        int left = reqUserId.length - count;
-        byte[] n = new byte[left];
-        for (int i = 0; i < left; i++)
-        {
-            n[i] = reqUserId[i];
-        }
-        return n;
-    }
-
     public static void main(String[] args)
     {
-        setupLogger();
-        ServerService serverExample = new ServerService();
+        Logger logr = MyLog.getLogr();
+        ServerService serverExample = new ServerService(logr);
         serverExample.startServer();
     }
 }
