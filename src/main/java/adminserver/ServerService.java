@@ -101,17 +101,13 @@ public class ServerService
         try
         {
             clientList.clear();
+            remoteRoomSeverList.clear();
             if (channelGroup != null && !channelGroup.isShutdown()) channelGroup.shutdown();
             logr.info("[서버 전체 종료]");
         } catch (Exception e)
         {
             logr.severe("[서버 전체 종료 실패]");
         }
-    }
-
-    public static void removeClient(Client client)
-    {
-        clientList.remove(client);
     }
 
     public static void main(String[] args)

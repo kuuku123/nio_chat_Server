@@ -146,8 +146,7 @@ public class Client
             {
                 try
                 {
-                    logr.severe("[accept fail" + socketChannel.getRemoteAddress() + " : " + Thread.currentThread().getName() + "]");
-                    ServerService.removeClient(Client.this);
+                    logr.severe("[send fail" + socketChannel.getRemoteAddress() + " : " + Thread.currentThread().getName() + "]");
                     socketChannel.close();
                     synchronized (for_inviteRoomProcess)
                     {
@@ -629,7 +628,5 @@ public class Client
                 e.printStackTrace();
             }
         }
-
-
     }
 }
