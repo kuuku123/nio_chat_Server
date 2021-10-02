@@ -117,19 +117,14 @@ public class Client
     {
         if (reqId != -1)
         {
-            writeBuffer.put(intToByte(reqId));
-            writeBuffer.position(4);
-            writeBuffer.put(intToByte(operation));
-            writeBuffer.position(8);
-            writeBuffer.put(intToByte(result));
-            writeBuffer.position(12);
+            writeBuffer.putInt(reqId);
+            writeBuffer.putInt(operation);
+            writeBuffer.putInt(result);
             writeBuffer.put(leftover);
         } else if (reqId == -1)
         {
-            writeBuffer.put(intToByte(reqId));
-            writeBuffer.position(4);
-            writeBuffer.put(intToByte(broadcastNum));
-            writeBuffer.position(8);
+            writeBuffer.putInt(reqId);
+            writeBuffer.putInt(broadcastNum);
             writeBuffer.put(leftover);
         }
         writeBuffer.flip();

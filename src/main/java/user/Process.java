@@ -9,7 +9,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.logging.Logger;
 
-import static util.ElseProcess.byteToInt;
 import static util.ElseProcess.removeZero;
 
 public class Process
