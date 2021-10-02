@@ -1,5 +1,6 @@
 package adminserver;
 
+import remoteroomserver.RemoteRoomServer;
 import room.Room;
 import user.Client;
 import util.MyLog;
@@ -111,76 +112,6 @@ public class ServerService
     public static void removeClient(Client client)
     {
         clientList.remove(client);
-    }
-
-
-
-    class RemoteRoomServer
-    {
-        ByteBuffer remoteReadBuf = ByteBuffer.allocate(10000);
-        AsynchronousSocketChannel remoteRoomServerChannel;
-        int ip0;
-        int ip1;
-        int ip2;
-        int ip3;
-        int port;
-
-        public RemoteRoomServer(AsynchronousSocketChannel remoteRoomServerChannel, int port)
-        {
-            this.remoteRoomServerChannel = remoteRoomServerChannel;
-            this.port = port;
-            receive();
-        }
-
-        void receive()
-        {
-            remoteRoomServerChannel.read(remoteReadBuf, remoteReadBuf, new CompletionHandler<Integer, ByteBuffer>()
-            {
-                @Override
-                public void completed(Integer result, ByteBuffer attachment)
-                {
-                    remoteReadBuf = ByteBuffer.allocate(10000);
-                    remoteReadBuf.clear();
-                    remoteRoomServerChannel.read(remoteReadBuf, remoteReadBuf, this);
-                }
-
-                @Override
-                public void failed(Throwable exc, ByteBuffer attachment)
-                {
-                    try
-                    {
-                        String portInfo = remoteRoomServerChannel.getRemoteAddress().toString();
-                        closeRemoteSever(portInfo);
-                        logr.severe("[Remote RoomServer receive fail" + remoteRoomServerChannel.getRemoteAddress() + " : " + Thread.currentThread().getName() + "]");
-                    } catch (IOException e)
-                    {
-                    }
-                }
-
-                void closeRemoteSever(String portInfo) throws IOException
-                {
-                    String[] portInfos = portInfo.split(":");
-                    int port = Integer.parseInt(portInfos[1]);
-                    if (port == 10001 || port == 10002)
-                    {
-                        for (int i = 0; i < remoteRoomSeverList.size(); i++)
-                        {
-                            RemoteRoomServer remoteRoomServer = remoteRoomSeverList.get(i);
-                            if (remoteRoomServer.port == port)
-                            {
-                                remoteRoomServer.remoteRoomServerChannel.close();
-                                remoteRoomSeverList.remove(remoteRoomServer);
-                                logr.info("[remote room server port : " + port + " removed]");
-                                logr.info("[remote RoomServer 연결 개수: " + remoteRoomSeverList.size() + "]");
-                                break;
-                            }
-                        }
-                    }
-
-                }
-
-            });
-        }
     }
 
     public static void main(String[] args)
