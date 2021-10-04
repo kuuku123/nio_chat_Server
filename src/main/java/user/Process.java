@@ -65,7 +65,7 @@ public class Process
                     client.send(reqId, operation, 0, 4, ByteBuffer.allocate(0));
                     logr.info(userId + " already exist");
                 }
-                else if (!client.getSocketChannel().isOpen()) // 현재 자신이 속한 방 상태를 알려줌
+                else if (!client.getSocketChannel().isOpen())
                 {
                     Client newClient = clientList.get(clientList.size() - 1);
                     client.setSocketChannel(newClient.getSocketChannel());
@@ -109,6 +109,7 @@ public class Process
                 {
                     logr.info(userId + " logged out , connection info deleted");
                     client.send(reqid, operation, 0, 0, ByteBuffer.allocate(0));
+                    client.setMyCurRoom(null);
                     client.getSocketChannel().close();
                     return;
                 } catch (Exception e)
@@ -116,7 +117,6 @@ public class Process
                     e.printStackTrace();
                 }
             }
-            else client.send(reqid, operation, 0, 1, ByteBuffer.allocate(0));
         }
     }
 
@@ -173,7 +173,7 @@ public class Process
             chatData.putInt(text.length());
             chatData.put(text.getBytes(StandardCharsets.UTF_8));
             chatData.flip();
-            if (client.getSocketChannel().isOpen())
+            if (client.getSocketChannel().isOpen() && client.getMyCurRoom() != null)
             {
                 synchronized (for_sendTextProcess)
                 {
@@ -407,6 +407,7 @@ public class Process
                     try
                     {
                         if (client.getUserId().equals(sender.getUserId())) continue;
+                        if (client.getMyCurRoom() == null) continue;
                         client.send(-1, operation, 5, 0, enterRoomBroadcast);
                         for_enterRoomProcess.wait(100);
                     } catch (InterruptedException e)
@@ -446,4 +447,6 @@ public class Process
             }
         }
     }
+
+
 }

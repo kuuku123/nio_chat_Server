@@ -22,9 +22,9 @@ test {
 jar {
     manifest {
         attributes(
-                'Main-Class': 'ServerExample'
+                'Main-Class': 'adminserver.ServerService'
         )
     }
 }
 
-mainClassName = 'ServerExample'
+mainClassName = 'adminserver.ServerService'
