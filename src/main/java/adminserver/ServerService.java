@@ -109,6 +109,21 @@ public class ServerService
         }
     }
 
+    public static Client getSender(String userId)
+    {
+        List<Client> clientList = ServerService.clientList;
+        Client sender = null;
+        for (Client c : clientList)
+        {
+            if (c.getUserId().equals(userId))
+            {
+                sender = c;
+                break;
+            }
+        }
+        return sender;
+    }
+
     public static void main(String[] args)
     {
         ServerService serverExample = new ServerService();

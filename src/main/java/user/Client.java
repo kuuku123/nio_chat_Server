@@ -27,6 +27,7 @@ public class Client
     private Object for_sendTextProcess = new Object();
     private Object for_enterRoomProcess = new Object();
     private Object for_inviteRoomProcess = new Object();
+    private Object for_quitRoomProcess = new Object();
 
     private AsynchronousSocketChannel socketChannel;
     private String userId = "not set yet";
@@ -146,6 +147,10 @@ public class Client
                 {
                     for_sendTextProcess.notify();
                 }
+                synchronized (for_quitRoomProcess)
+                {
+                    for_quitRoomProcess.notify();
+                }
             }
 
             @Override
@@ -163,6 +168,10 @@ public class Client
                 {
                     for_sendTextProcess.notify();
                 }
+                synchronized (for_quitRoomProcess)
+                {
+                    for_quitRoomProcess.notify();
+                }
                 try
                 {
                     logr.severe("[send fail" + socketChannel.getRemoteAddress() + " : " + Thread.currentThread().getName() + "]");
@@ -178,7 +187,7 @@ public class Client
     void processOp(ByteBuffer attachment)
     {
         attachment.flip();
-        Process process = new Process(attachment,for_sendTextProcess,for_enterRoomProcess,for_inviteRoomProcess);
+        Process process = new Process(attachment,for_sendTextProcess,for_enterRoomProcess,for_inviteRoomProcess,for_quitRoomProcess);
         int reqId = process.getReqId();
         int operation = process.getOperation();
         String userId = process.getUserId();
@@ -205,6 +214,8 @@ public class Client
                 process.createRoomProcess(reqId, operation, userId, attachment);
                 return;
             case quitRoom:
+                process.quitRoomProcess(reqId,operation,roomNum,userId,attachment);
+                return;
             case inviteRoom:
                 process.inviteRoomProcess(reqId, operation, roomNum, userId, attachment);
                 return;

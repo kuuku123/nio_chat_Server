@@ -18,14 +18,16 @@ public class Process
     private Object for_sendTextProcess;
     private Object for_enterRoomProcess;
     private Object for_inviteRoomProcess;
+    private Object for_quitRoomProcess;
 
-    Process(ByteBuffer byteBuffer,Object for_sendTextProcess, Object for_enterRoomProcess, Object for_inviteRoomProcess)
+    Process(ByteBuffer byteBuffer,Object for_sendTextProcess, Object for_enterRoomProcess, Object for_inviteRoomProcess,Object for_quitRoomProcess)
     {
         this.byteBuffer = byteBuffer;
         logr = MyLog.getLogr();
         this.for_sendTextProcess  = for_sendTextProcess;
         this.for_enterRoomProcess = for_enterRoomProcess;
         this.for_inviteRoomProcess = for_inviteRoomProcess;
+        this.for_quitRoomProcess = for_quitRoomProcess;
     }
     int getReqId()
     {
@@ -312,16 +314,7 @@ public class Process
 
     public void roomListProcess(int reqId, int operation, int roomNum, String userId, ByteBuffer data)
     {
-        List<Client> clientList = ServerService.clientList;
-        Client sender = null;
-        for (Client c : clientList)
-        {
-            if (c.getUserId().equals(userId))
-            {
-                sender = c;
-                break;
-            }
-        }
+        Client sender = ServerService.getSender(userId);
         int size = sender.getMyRoomList().size();
         ByteBuffer byteBuffer = ByteBuffer.allocate(10000);
         byteBuffer.putInt(size);
@@ -348,16 +341,7 @@ public class Process
 
     void enterRoomProcess(int reqId, int operation, int roomNum, String userId, ByteBuffer data)
     {
-        List<Client> clientList = ServerService.clientList;
-        Client sender = null;
-        for (Client c : clientList)
-        {
-            if (c.getUserId().equals(userId))
-            {
-                sender = c;
-                break;
-            }
-        }
+        Client sender = ServerService.getSender(userId);
         Room curRoom = null;
         for (Room r : sender.getMyRoomList())
         {
@@ -449,4 +433,56 @@ public class Process
     }
 
 
+    void quitRoomProcess(int reqId, int operation,int roomNum, String userId, ByteBuffer attachment)
+    {
+        Client sender = ServerService.getSender(userId);
+
+        sender.setMyCurRoom(null);
+        Room quitRoom = null;
+        for(int i = 0; i<ServerService.serverRoomList.size(); i++)
+        {
+            Room room = ServerService.serverRoomList.get(i);
+            if(room.getRoomNum() == roomNum)
+            {
+                quitRoom = room;
+                quitRoom.removeUser(sender);
+                synchronized (for_quitRoomProcess)
+                {
+                    try
+                    {
+                        sender.send(reqId,operation,0,0,ByteBuffer.allocate(0));
+                        for_quitRoomProcess.wait(100);
+                    } catch (InterruptedException e)
+                    {
+                        e.printStackTrace();
+                    }
+                }
+                break;
+            }
+        }
+
+        List<Client> userList = quitRoom.getUserList();
+        for (Client client : userList)
+        {
+            if(client.getUserId().equals(sender.getUserId())) continue;
+            ByteBuffer allocate = ByteBuffer.allocate(20);
+            allocate.putInt(roomNum);
+            allocate.put(sender.getUserId().getBytes(StandardCharsets.UTF_8));
+            allocate.position(20);
+            allocate.flip();
+            synchronized (for_quitRoomProcess)
+            {
+                try
+                {
+                    client.send(-1, operation, 1, 0, allocate);
+                    for_quitRoomProcess.wait(100);
+                } catch (InterruptedException e)
+                {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+
+    }
 }

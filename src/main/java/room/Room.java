@@ -61,6 +61,16 @@ public class Room
         this.roomName = roomName;
     }
 
+    public void removeUser(Client user)
+    {
+        userList.remove(user);
+        for (Text text : chatLog)
+        {
+            Map<String, Integer> readCheck = text.readCheck;
+            readCheck.remove(user.getUserId());
+        }
+    }
+
     public void createAndAddText(int textId, String sender, String text)
     {
         Text newText = new Text(textId, sender, text);
