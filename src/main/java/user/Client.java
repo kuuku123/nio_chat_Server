@@ -22,7 +22,6 @@ import static util.ElseProcess.removeZero;
 public class Client
 {
     private Logger logr;
-    ByteBuffer readBuffer = ByteBuffer.allocate(10000);
     ByteBuffer writeBuffer = ByteBuffer.allocate(10000);
     private Object for_sendTextProcess = new Object();
     private Object for_enterRoomProcess = new Object();
@@ -33,6 +32,7 @@ public class Client
     private String userId = "not set yet";
     private List<Room> myRoomList = new Vector<>();
     private Room myCurRoom;
+    private int State;
 
     public Client(AsynchronousSocketChannel socketChannel)
     {
@@ -61,10 +61,17 @@ public class Client
         return myCurRoom;
     }
 
+    public int getState()
+    {
+        return State;
+    }
+
     public void setSocketChannel(AsynchronousSocketChannel socketChannel)
     {
         this.socketChannel = socketChannel;
     }
+
+
 
     public void setUserId(String userId)
     {
@@ -76,9 +83,15 @@ public class Client
         this.myCurRoom = myCurRoom;
     }
 
+    public void setState(int state)
+    {
+        State = state;
+    }
+
     public void receive()
     {
-        socketChannel.read(readBuffer, null, new CompletionHandler<Integer, ByteBuffer>()
+        ByteBuffer readBuffer = ByteBuffer.allocate(10000);
+        socketChannel.read(readBuffer, readBuffer, new CompletionHandler<Integer, ByteBuffer>()
         {
             @Override
             public void completed(Integer result, ByteBuffer attachment)
@@ -86,16 +99,14 @@ public class Client
                 try
                 {
                     logr.info("[요청 처리: " + socketChannel.getRemoteAddress() + ": " + Thread.currentThread().getName() + "]");
-                    processOp(readBuffer);
-                    readBuffer = ByteBuffer.allocate(10000);
+                    processOp(attachment);
+                    ByteBuffer readBuffer = ByteBuffer.allocate(10000);
                     if (socketChannel != null) socketChannel.read(readBuffer, readBuffer, this);
                 } catch (IOException e)
                 {
                 } catch (BufferUnderflowException e)
                 {
                     logr.info("receive 하는중에 BufferUnderflow 발생함");
-                    readBuffer = ByteBuffer.allocate(10000);
-                    readBuffer.clear();
                 }
             }
 
@@ -105,6 +116,7 @@ public class Client
                 try
                 {
                     logr.severe("[receive fail" + socketChannel.getRemoteAddress() + " : " + Thread.currentThread().getName() + "]");
+                    setState(2);
                     socketChannel.close();
                 } catch (IOException e)
                 {

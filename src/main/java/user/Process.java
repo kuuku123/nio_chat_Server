@@ -72,20 +72,21 @@ public class Process
                     Client newClient = clientList.get(clientList.size() - 1);
                     client.setSocketChannel(newClient.getSocketChannel());
                     clientList.remove(newClient);
-                    int totalRoomNum = client.getMyRoomList().size();
-                    addressesBuf.putInt(totalRoomNum);
-                    for (int i = 0; i < totalRoomNum; i++)
-                    {
-                        Room room = client.getMyRoomList().get(i);
-                        List<Integer> ipAddress = room.getIpAddress();
-                        addressesBuf.putInt(ipAddress.get(0));
-                        addressesBuf.putInt(ipAddress.get(1));
-                        addressesBuf.putInt(ipAddress.get(2));
-                        addressesBuf.putInt(ipAddress.get(3));
-                        addressesBuf.putInt(room.getPort());
-                    }
-                    addressesBuf.flip();
-                    client.send(reqId, operation, 0, 0, addressesBuf);
+//                    int totalRoomNum = client.getMyRoomList().size();
+//                    addressesBuf.putInt(totalRoomNum);
+//                    for (int i = 0; i < totalRoomNum; i++)
+//                    {
+//                        Room room = client.getMyRoomList().get(i);
+//                        List<Integer> ipAddress = room.getIpAddress();
+//                        addressesBuf.putInt(ipAddress.get(0));
+//                        addressesBuf.putInt(ipAddress.get(1));
+//                        addressesBuf.putInt(ipAddress.get(2));
+//                        addressesBuf.putInt(ipAddress.get(3));
+//                        addressesBuf.putInt(room.getPort());
+//                    }
+//                    addressesBuf.flip();
+                    client.setState(0);
+                    client.send(reqId, operation, 0, 0, ByteBuffer.allocate(0));
                     logr.info("[연결 개수: " + clientList.size() + "]");
                     logr.info(userId + " 재로그인 성공");
                 }
@@ -113,6 +114,7 @@ public class Process
                     client.send(reqid, operation, 0, 0, ByteBuffer.allocate(0));
                     client.setMyCurRoom(null);
                     client.getSocketChannel().close();
+                    client.setState(1);
                     return;
                 } catch (Exception e)
                 {
@@ -175,7 +177,7 @@ public class Process
             chatData.putInt(text.length());
             chatData.put(text.getBytes(StandardCharsets.UTF_8));
             chatData.flip();
-            if (client.getSocketChannel().isOpen() && client.getMyCurRoom() != null)
+            if (client.getSocketChannel().isOpen() && client.getMyCurRoom() != null && client.getState() == 1)
             {
                 synchronized (for_sendTextProcess)
                 {
@@ -211,6 +213,7 @@ public class Process
             if (client.getUserId().equals(userId))
             {
                 sender = client;
+                sender.setState(1);
                 room.getUserList().add(client);
                 client.getMyRoomList().add(room);
                 client.setMyCurRoom(room);
@@ -268,6 +271,7 @@ public class Process
                     client.setMyCurRoom(invited);
                     client.getMyRoomList().add(invited);
                     client.getMyCurRoom().getUserList().add(client);
+                    client.setState(1);
                 }
             }
         }
@@ -342,6 +346,7 @@ public class Process
     void enterRoomProcess(int reqId, int operation, int roomNum, String userId, ByteBuffer data)
     {
         Client sender = ServerService.getSender(userId);
+        sender.setState(1);
         Room curRoom = null;
         for (Room r : sender.getMyRoomList())
         {
@@ -446,6 +451,7 @@ public class Process
             {
                 quitRoom = room;
                 quitRoom.removeUser(sender);
+                sender.getMyRoomList().remove(quitRoom);
                 synchronized (for_quitRoomProcess)
                 {
                     try

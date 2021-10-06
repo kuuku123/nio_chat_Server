@@ -126,7 +126,7 @@ public class Room
             this.text = text;
             for (Client user : Room.this.userList)
             {
-                if (user.getSocketChannel().isOpen() && user.getMyCurRoom() != null) readCheck.put(user.getUserId(), 1);
+                if (user.getSocketChannel().isOpen() && user.getMyCurRoom() != null && user.getState() == 1) readCheck.put(user.getUserId(), 1);
                 else
                 {
                     readCheck.put(user.getUserId(), 0);
