@@ -1,5 +1,8 @@
 package util;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
 public class ElseProcess
 {
 //    public static byte[] intToByte(int value)
@@ -42,6 +45,13 @@ public class ElseProcess
             n[i] = reqUserId[i];
         }
         return n;
+    }
+
+    public static String getTime()
+    {
+        LocalDateTime now = LocalDateTime.now();
+        DateTimeFormatter myFormat = DateTimeFormatter.ofPattern("yyMMddHHmmss");
+        return now.format(myFormat);
     }
 
 }

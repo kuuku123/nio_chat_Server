@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.logging.Logger;
 
+import static util.ElseProcess.getTime;
 import static util.ElseProcess.removeZero;
 
 public class Process
@@ -172,6 +173,8 @@ public class Process
             chatData.putInt(currentSender.getMyCurRoom().getRoomNum());
             chatData.put(currentSender.getUserId().getBytes(StandardCharsets.UTF_8));
             chatData.position(20);
+            chatData.put(getTime().getBytes(StandardCharsets.UTF_8));
+            chatData.position(32);
             chatData.putInt(textId);
             chatData.putInt(notRead);
             chatData.putInt(text.length());
@@ -287,6 +290,8 @@ public class Process
                     infoBuf.putInt(roomNum);
                     infoBuf.put(invitee.getUserId().getBytes(StandardCharsets.UTF_8));
                     infoBuf.position(20);
+                    infoBuf.put(getTime().getBytes(StandardCharsets.UTF_8));
+                    infoBuf.position(32);
                     infoBuf.putInt(userCount);
                     int curPos0 = infoBuf.position();
                     int i = 0;
@@ -378,6 +383,8 @@ public class Process
             enterRoomBroadcast.putInt(roomNum);
             enterRoomBroadcast.put(userId.getBytes(StandardCharsets.UTF_8));
             enterRoomBroadcast.position(20);
+            enterRoomBroadcast.put(getTime().getBytes(StandardCharsets.UTF_8));
+            enterRoomBroadcast.position(32);
             if (toSend.size() > 0)
             {
                 enterRoomBroadcast.putInt(toSend.get(0).getTextId());
@@ -416,6 +423,8 @@ public class Process
             int curPos = responseBuf.position();
             responseBuf.put(text.getSender().getBytes(StandardCharsets.UTF_8));
             responseBuf.position(curPos + 16);
+            responseBuf.put(getTime().getBytes(StandardCharsets.UTF_8));
+            responseBuf.position(curPos + 16+12);
             int notRoomRead = text.getNotRoomRead();
             responseBuf.putInt(text.getTextId());
             responseBuf.putInt(notRoomRead);
@@ -475,6 +484,8 @@ public class Process
             allocate.putInt(roomNum);
             allocate.put(sender.getUserId().getBytes(StandardCharsets.UTF_8));
             allocate.position(20);
+            allocate.put(getTime().getBytes(StandardCharsets.UTF_8));
+            allocate.position(32);
             allocate.flip();
             synchronized (for_quitRoomProcess)
             {
