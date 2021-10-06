@@ -7,6 +7,7 @@ import util.MyLog;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Logger;
 
 import static util.ElseProcess.getTime;
@@ -64,6 +65,7 @@ public class Process
                 if (client.getSocketChannel().isOpen() && client.getState() == 0)
                 {
                     client.send(reqId, operation, 0, 0, ByteBuffer.allocate(0));
+                    client.setState(1);
                     logr.info(userId + " 재로그인 성공");
                 }
 
@@ -72,7 +74,7 @@ public class Process
                     Client newClient = clientList.get(clientList.size() - 1);
                     client.setSocketChannel(newClient.getSocketChannel());
                     clientList.remove(newClient);
-                    client.setState(2);
+                    client.setState(1);
                     if(client.getNotYetReadBuffers().size()>0)
                     {
                         for (ByteBuffer notYetReadBuffer : client.getNotYetReadBuffers())
@@ -103,6 +105,7 @@ public class Process
         addressesBuf.flip();
         Client client1 = clientList.get(clientList.size() - 1);
         client1.setUserId(userId);
+        client1.setState(1);
         logr.info(userId + " logged in");
         client1.send(reqId, operation, 0, 0, addressesBuf);
     }
@@ -218,8 +221,9 @@ public class Process
             if (client.getUserId().equals(userId))
             {
                 sender = client;
-                sender.setState(1);
                 room.getUserList().add(client);
+                Map<Client, Integer> userStates = room.getUserStates();
+                userStates.put(sender,1);
                 client.getMyRoomList().add(room);
                 client.setMyCurRoom(room);
                 break;
@@ -235,8 +239,17 @@ public class Process
 
     public void inviteRoomProcess(int reqId, int operation, int roomNum, String userId, ByteBuffer data)
     {
-
         List<Client> clientList = ServerService.clientList;
+
+        Client invitee = null;
+        for (Client c : clientList)
+        {
+            if (c.getUserId().equals(userId))
+            {
+                invitee = c;
+                break;
+            }
+        }
         Room invited = null;
         for (Room room : ServerService.serverRoomList)
         {
@@ -273,48 +286,46 @@ public class Process
                         }
                     }
                     success = true;
-                    client.setMyCurRoom(invited);
+                    if(client.getMyRoomList().size() == 0)
+                    {
+                        client.setMyCurRoom(invited);
+                        Map<Client, Integer> userStates = invited.getUserStates();
+                        userStates.put(client,1);
+                    }
                     client.getMyRoomList().add(invited);
-                    client.getMyCurRoom().getUserList().add(client);
-                    client.setState(1);
+                    invitee.getMyCurRoom().getUserList().add(client);
                 }
             }
         }
-        Client invitee = null;
-        for (Client c : clientList)
+
+
+        for (Client roomUser : invitee.getMyCurRoom().getUserList())
         {
-            if (c.getUserId().equals(userId))
+            ByteBuffer infoBuf = ByteBuffer.allocate(1000);
+            infoBuf.putInt(roomNum);
+            infoBuf.put(invitee.getUserId().getBytes(StandardCharsets.UTF_8));
+            infoBuf.position(20);
+            infoBuf.put(getTime().getBytes(StandardCharsets.UTF_8));
+            infoBuf.position(32);
+            infoBuf.putInt(userCount);
+            int curPos0 = infoBuf.position();
+            int i = 0;
+            for (i = 0; i < userCount; i++)
             {
-                invitee = c;
-                for (Client roomUser : invitee.getMyCurRoom().getUserList())
+                infoBuf.position(curPos0 + 16 * i);
+                infoBuf.put(users[i].getBytes(StandardCharsets.UTF_8));
+            }
+            infoBuf.position(curPos0 + 16 * i);
+            infoBuf.flip();
+            synchronized (for_inviteRoomProcess)
+            {
+                try
                 {
-                    ByteBuffer infoBuf = ByteBuffer.allocate(1000);
-                    infoBuf.putInt(roomNum);
-                    infoBuf.put(invitee.getUserId().getBytes(StandardCharsets.UTF_8));
-                    infoBuf.position(20);
-                    infoBuf.put(getTime().getBytes(StandardCharsets.UTF_8));
-                    infoBuf.position(32);
-                    infoBuf.putInt(userCount);
-                    int curPos0 = infoBuf.position();
-                    int i = 0;
-                    for (i = 0; i < userCount; i++)
-                    {
-                        infoBuf.position(curPos0 + 16 * i);
-                        infoBuf.put(users[i].getBytes(StandardCharsets.UTF_8));
-                    }
-                    infoBuf.position(curPos0 + 16 * i);
-                    infoBuf.flip();
-                    synchronized (for_inviteRoomProcess)
-                    {
-                        try
-                        {
-                            roomUser.send(-1, operation, 0, 0, infoBuf);
-                            for_inviteRoomProcess.wait(100);
-                        } catch (InterruptedException e)
-                        {
-                            e.printStackTrace();
-                        }
-                    }
+                    roomUser.send(-1, operation, 0, 0, infoBuf);
+                    for_inviteRoomProcess.wait(100);
+                } catch (InterruptedException e)
+                {
+                    e.printStackTrace();
                 }
             }
         }
@@ -353,7 +364,6 @@ public class Process
     void enterRoomProcess(int reqId, int operation, int roomNum, String userId, ByteBuffer data)
     {
         Client sender = ServerService.getSender(userId);
-        sender.setState(1);
         Room curRoom = null;
         for (Room r : sender.getMyRoomList())
         {
@@ -367,6 +377,8 @@ public class Process
         List<Room.Text> chatLog = curRoom.getChatLog();
         int notRead = curRoom.getUserNotRoomRead(userId);
         List<Room.Text> toSend = curRoom.getUserNotRoomReadTextList(userId);
+        Map<Client, Integer> userStates = curRoom.getUserStates();
+        userStates.put(sender,1);
         boolean everybodyRead = true;
         for (Room.Text text : chatLog)
         {
@@ -453,7 +465,6 @@ public class Process
         Client sender = ServerService.getSender(userId);
 
         sender.setMyCurRoom(null);
-        sender.setState(2);
         Room quitRoom = null;
         for(int i = 0; i<ServerService.serverRoomList.size(); i++)
         {
@@ -462,6 +473,8 @@ public class Process
             {
                 quitRoom = room;
                 quitRoom.removeUser(sender);
+                Map<Client, Integer> userStates = quitRoom.getUserStates();
+                userStates.remove(sender);
                 sender.getMyRoomList().remove(quitRoom);
                 synchronized (for_quitRoomProcess)
                 {
@@ -482,7 +495,7 @@ public class Process
         for (Client client : userList)
         {
             if(client.getUserId().equals(sender.getUserId())) continue;
-            ByteBuffer allocate = ByteBuffer.allocate(20);
+            ByteBuffer allocate = ByteBuffer.allocate(100);
             allocate.putInt(roomNum);
             allocate.put(sender.getUserId().getBytes(StandardCharsets.UTF_8));
             allocate.position(20);
@@ -510,12 +523,13 @@ public class Process
         Client sender = ServerService.getSender(userId);
 
         sender.setMyCurRoom(null);
-        sender.setState(2);
         for(int i = 0; i<ServerService.serverRoomList.size(); i++)
         {
             Room room = ServerService.serverRoomList.get(i);
             if(room.getRoomNum() == roomNum)
             {
+                Map<Client, Integer> userStates = room.getUserStates();
+                userStates.put(sender,2);
                 sender.send(reqId,operation,0,0,ByteBuffer.allocate(0));
                 break;
             }

@@ -14,6 +14,7 @@ import java.nio.channels.CompletionHandler;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Vector;
 import java.util.logging.Logger;
 
@@ -122,6 +123,8 @@ public class Client
                 try
                 {
                     logr.severe("[receive fail" + socketChannel.getRemoteAddress() + " : " + Thread.currentThread().getName() + "]");
+                    Map<Client, Integer> userStates = myCurRoom.getUserStates();
+                    userStates.put(Client.this,0);
                     setState(2);
                     socketChannel.close();
                 } catch (IOException e)

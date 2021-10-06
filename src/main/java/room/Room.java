@@ -10,6 +10,7 @@ public class Room
     private String roomName;
     private List<Client> userList = new Vector<>();
     private List<Text> chatLog = new ArrayList<>();
+    private Map<Client,Integer> userStates = new HashMap<>();
     private int ip0;
     private int ip1;
     private int ip2;
@@ -56,10 +57,16 @@ public class Room
         return IpAddress;
     }
 
+    public Map<Client, Integer> getUserStates()
+    {
+        return userStates;
+    }
+
     public void setRoomName(String roomName)
     {
         this.roomName = roomName;
     }
+
 
     public void removeUser(Client user)
     {
@@ -126,7 +133,7 @@ public class Room
             this.text = text;
             for (Client user : Room.this.userList)
             {
-                if (user.getSocketChannel().isOpen() && user.getMyCurRoom() != null && user.getState() == 1) readCheck.put(user.getUserId(), 1);
+                if (user.getSocketChannel().isOpen() && user.getMyCurRoom() != null && userStates.getOrDefault(user,-1) == 1 && user.getState() == 1) readCheck.put(user.getUserId(), 1);
                 else
                 {
                     readCheck.put(user.getUserId(), 0);
