@@ -3,7 +3,7 @@ package util;
 public enum OperationEnum
 {
     login , logout, sendText,fileUpload, fileList,fileDownload,fileDelete, createRoom,
-    quitRoom,inviteRoom, roomUserList , roomList, enterRoom, enrollFile;
+    quitRoom,inviteRoom, roomUserList , roomList, enterRoom, enrollFile, fileInfo, exitRoom;
 
     public static OperationEnum fromInteger(int x)
     {
@@ -37,6 +37,10 @@ public enum OperationEnum
                 return enterRoom;
             case 13:
                 return enrollFile;
+            case 14:
+                return fileInfo;
+            case 15:
+                return exitRoom;
         }
         return null;
     }

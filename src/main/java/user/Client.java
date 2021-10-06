@@ -12,6 +12,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
 import java.util.logging.Logger;
@@ -22,7 +23,6 @@ import static util.ElseProcess.removeZero;
 public class Client
 {
     private Logger logr;
-    ByteBuffer writeBuffer = ByteBuffer.allocate(10000);
     private Object for_sendTextProcess = new Object();
     private Object for_enterRoomProcess = new Object();
     private Object for_inviteRoomProcess = new Object();
@@ -33,6 +33,7 @@ public class Client
     private List<Room> myRoomList = new Vector<>();
     private Room myCurRoom;
     private int State;
+    private List<ByteBuffer> notYetReadBuffers = new Vector<>();
 
     public Client(AsynchronousSocketChannel socketChannel)
     {
@@ -64,6 +65,11 @@ public class Client
     public int getState()
     {
         return State;
+    }
+
+    public List<ByteBuffer> getNotYetReadBuffers()
+    {
+        return notYetReadBuffers;
     }
 
     public void setSocketChannel(AsynchronousSocketChannel socketChannel)
@@ -128,6 +134,7 @@ public class Client
 
     public void send(int reqId, int operation, int broadcastNum, int result, ByteBuffer leftover)
     {
+        ByteBuffer writeBuffer = ByteBuffer.allocate(10000);
         if (reqId != -1)
         {
             writeBuffer.putInt(reqId);
@@ -146,7 +153,6 @@ public class Client
             @Override
             public void completed(Integer result, Object attachment)
             {
-                writeBuffer = ByteBuffer.allocate(10000);
                 synchronized (for_inviteRoomProcess)
                 {
                     for_inviteRoomProcess.notify();
@@ -168,6 +174,12 @@ public class Client
             @Override
             public void failed(Throwable exc, Object attachment)
             {
+
+                if (reqId == -1 && broadcastNum == 2)
+                {
+                    leftover.flip();
+                    notYetReadBuffers.add(leftover);
+                }
                 synchronized (for_inviteRoomProcess)
                 {
                     for_inviteRoomProcess.notify();
@@ -239,6 +251,12 @@ public class Client
                 process.enterRoomProcess(reqId, operation, roomNum, userId, attachment);
                 return;
             case enrollFile:
+                return;
+            case fileInfo:
+                return;
+            case exitRoom:
+                process.exitRoomProcess(reqId,operation,roomNum,userId,attachment);
+                return;
 
         }
     }

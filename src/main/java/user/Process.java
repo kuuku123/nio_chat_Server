@@ -61,33 +61,39 @@ public class Process
         {
             if (client.getUserId().equals(userId))
             {
-                if (client.getSocketChannel().isOpen())
+                if (client.getSocketChannel().isOpen() && client.getState() == 0)
                 {
-                    Client newClient = clientList.get(clientList.size() - 1);
-                    clientList.remove(newClient);
-                    client.send(reqId, operation, 0, 4, ByteBuffer.allocate(0));
-                    logr.info(userId + " already exist");
+                    client.send(reqId, operation, 0, 0, ByteBuffer.allocate(0));
+                    logr.info(userId + " 재로그인 성공");
                 }
+
                 else if (!client.getSocketChannel().isOpen())
                 {
                     Client newClient = clientList.get(clientList.size() - 1);
                     client.setSocketChannel(newClient.getSocketChannel());
                     clientList.remove(newClient);
-//                    int totalRoomNum = client.getMyRoomList().size();
-//                    addressesBuf.putInt(totalRoomNum);
-//                    for (int i = 0; i < totalRoomNum; i++)
-//                    {
-//                        Room room = client.getMyRoomList().get(i);
-//                        List<Integer> ipAddress = room.getIpAddress();
-//                        addressesBuf.putInt(ipAddress.get(0));
-//                        addressesBuf.putInt(ipAddress.get(1));
-//                        addressesBuf.putInt(ipAddress.get(2));
-//                        addressesBuf.putInt(ipAddress.get(3));
-//                        addressesBuf.putInt(room.getPort());
-//                    }
-//                    addressesBuf.flip();
-                    client.setState(0);
+                    client.setState(2);
+                    if(client.getNotYetReadBuffers().size()>0)
+                    {
+                        for (ByteBuffer notYetReadBuffer : client.getNotYetReadBuffers())
+                        {
+                            synchronized (for_sendTextProcess)
+                            {
+                                try
+                                {
+                                    client.send(-1,0,2,0,notYetReadBuffer);
+                                    for_sendTextProcess.wait(100);
+                                } catch (InterruptedException e)
+                                {
+                                    e.printStackTrace();
+                                }
+                            }
+                        }
+                        client.getNotYetReadBuffers().clear();
+                    }
+
                     client.send(reqId, operation, 0, 0, ByteBuffer.allocate(0));
+
                     logr.info("[연결 개수: " + clientList.size() + "]");
                     logr.info(userId + " 재로그인 성공");
                 }
@@ -114,8 +120,7 @@ public class Process
                     logr.info(userId + " logged out , connection info deleted");
                     client.send(reqid, operation, 0, 0, ByteBuffer.allocate(0));
                     client.setMyCurRoom(null);
-                    client.getSocketChannel().close();
-                    client.setState(1);
+                    client.setState(0);
                     return;
                 } catch (Exception e)
                 {
@@ -180,18 +185,15 @@ public class Process
             chatData.putInt(text.length());
             chatData.put(text.getBytes(StandardCharsets.UTF_8));
             chatData.flip();
-            if (client.getSocketChannel().isOpen() && client.getMyCurRoom() != null && client.getState() == 1)
+            synchronized (for_sendTextProcess)
             {
-                synchronized (for_sendTextProcess)
+                try
                 {
-                    try
-                    {
-                        client.send(-1, operation, 2, 0, chatData);
-                        for_sendTextProcess.wait(100);
-                    } catch (InterruptedException e)
-                    {
-                        e.printStackTrace();
-                    }
+                    client.send(-1, operation, 2, 0, chatData);
+                    for_sendTextProcess.wait(100);
+                } catch (InterruptedException e)
+                {
+                    e.printStackTrace();
                 }
             }
         }
@@ -402,7 +404,6 @@ public class Process
                 {
                     try
                     {
-                        if (client.getUserId().equals(sender.getUserId())) continue;
                         if (client.getMyCurRoom() == null) continue;
                         client.send(-1, operation, 5, 0, enterRoomBroadcast);
                         for_enterRoomProcess.wait(100);
@@ -414,30 +415,30 @@ public class Process
             }
         }
 
-        ByteBuffer responseBuf = ByteBuffer.allocate(10000);
-        responseBuf.putInt(notRead);
-        for (int i = 0; i < notRead; i++)
-        {
-            Room.Text text = toSend.get(i);
-            int length = text.getText().length();
-            int curPos = responseBuf.position();
-            responseBuf.put(text.getSender().getBytes(StandardCharsets.UTF_8));
-            responseBuf.position(curPos + 16);
-            responseBuf.put(getTime().getBytes(StandardCharsets.UTF_8));
-            responseBuf.position(curPos + 16+12);
-            int notRoomRead = text.getNotRoomRead();
-            responseBuf.putInt(text.getTextId());
-            responseBuf.putInt(notRoomRead);
-            responseBuf.putInt(length);
-            responseBuf.put(text.getText().getBytes(StandardCharsets.UTF_8));
-        }
-        responseBuf.flip();
+//        ByteBuffer responseBuf = ByteBuffer.allocate(10000);
+//        responseBuf.putInt(notRead);
+//        for (int i = 0; i < notRead; i++)
+//        {
+//            Room.Text text = toSend.get(i);
+//            int length = text.getText().length();
+//            int curPos = responseBuf.position();
+//            responseBuf.put(text.getSender().getBytes(StandardCharsets.UTF_8));
+//            responseBuf.position(curPos + 16);
+//            responseBuf.put(getTime().getBytes(StandardCharsets.UTF_8));
+//            responseBuf.position(curPos + 16+12);
+//            int notRoomRead = text.getNotRoomRead();
+//            responseBuf.putInt(text.getTextId());
+//            responseBuf.putInt(notRoomRead);
+//            responseBuf.putInt(length);
+//            responseBuf.put(text.getText().getBytes(StandardCharsets.UTF_8));
+//        }
+//        responseBuf.flip();
 
         synchronized (for_enterRoomProcess)
         {
             try
             {
-                sender.send(reqId, operation, 0, 0, responseBuf);
+                sender.send(reqId, operation, 0, 0, ByteBuffer.allocate(0));
                 for_enterRoomProcess.wait(100);
             } catch (InterruptedException e)
             {
@@ -452,6 +453,7 @@ public class Process
         Client sender = ServerService.getSender(userId);
 
         sender.setMyCurRoom(null);
+        sender.setState(2);
         Room quitRoom = null;
         for(int i = 0; i<ServerService.serverRoomList.size(); i++)
         {
@@ -499,7 +501,24 @@ public class Process
                 }
             }
         }
+    }
 
 
+    void exitRoomProcess(int reqId, int operation,int roomNum, String userId, ByteBuffer attachment)
+    {
+
+        Client sender = ServerService.getSender(userId);
+
+        sender.setMyCurRoom(null);
+        sender.setState(2);
+        for(int i = 0; i<ServerService.serverRoomList.size(); i++)
+        {
+            Room room = ServerService.serverRoomList.get(i);
+            if(room.getRoomNum() == roomNum)
+            {
+                sender.send(reqId,operation,0,0,ByteBuffer.allocate(0));
+                break;
+            }
+        }
     }
 }
