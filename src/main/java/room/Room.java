@@ -2,6 +2,7 @@ package room;
 
 import user.Client;
 
+import java.nio.file.Path;
 import java.util.*;
 
 public class Room
@@ -10,7 +11,11 @@ public class Room
     private String roomName;
     private List<Client> userList = new Vector<>();
     private List<Text> chatLog = new ArrayList<>();
+    private List<File> fileList = new Vector<>();
     private Map<Client,Integer> userStates = new HashMap<>();
+    private int fileNum = 0;
+    private Map<String,Integer> fileNameCheck = new HashMap<>();
+
     private int ip0;
     private int ip1;
     private int ip2;
@@ -62,11 +67,43 @@ public class Room
         return userStates;
     }
 
+    public int getFileNum()
+    {
+        return fileNum;
+    }
+
+    public List<File> getFileList()
+    {
+        return fileList;
+    }
+
+    public String checkFileNameCheck(String fileName)
+    {
+        if (fileNameCheck.getOrDefault(fileName,-1) == -1)
+        {
+            fileNameCheck.put(fileName,0);
+            return fileName;
+        }
+        else
+        {
+            Integer integer = fileNameCheck.get(fileName);
+            integer++;
+            String[] split = fileName.split("\\.");
+            String checkedFileName = split[0] + "("+integer+")" + split[1];
+            fileNameCheck.put(fileName,integer);
+            return checkedFileName;
+        }
+    }
+
     public void setRoomName(String roomName)
     {
         this.roomName = roomName;
     }
 
+    public void incrementFileNum()
+    {
+        fileNum++;
+    }
 
     public void removeUser(Client user)
     {
@@ -115,6 +152,14 @@ public class Room
             }
         }
         return notReadList;
+    }
+
+    public File createNewFile(int fileNum, String fileName, Path path)
+    {
+        File file = new File(fileNum, fileName, path);
+        fileList.add(file);
+
+        return file;
     }
 
 
@@ -167,4 +212,34 @@ public class Room
             return notRoomRead;
         }
     }
+
+    public class File
+    {
+        private int fileNum;
+        private String fileName;
+        private Path path;
+
+        public File(int fileNum, String fileName, Path path)
+        {
+            this.fileNum = fileNum;
+            this.fileName = fileName;
+            this.path = path;
+        }
+
+        public int getFileNum()
+        {
+            return fileNum;
+        }
+
+        public String getFileName()
+        {
+            return fileName;
+        }
+
+        public Path getPath()
+        {
+            return path;
+        }
+    }
+
 }

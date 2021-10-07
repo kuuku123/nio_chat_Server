@@ -234,6 +234,8 @@ public class Client
                 process.sendTextProcess(reqId, operation, userId, attachment);
                 return;
             case fileUpload:
+                process.fileUploadProcess(reqId,operation,roomNum,userId,attachment);
+                return;
             case fileList:
             case fileDownload:
             case fileDelete:
@@ -254,6 +256,7 @@ public class Client
                 process.enterRoomProcess(reqId, operation, roomNum, userId, attachment);
                 return;
             case enrollFile:
+                process.enrollFileProcess(reqId,operation,roomNum,userId,attachment);
                 return;
             case fileInfo:
                 return;

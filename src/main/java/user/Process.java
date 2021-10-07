@@ -4,8 +4,13 @@ import adminserver.ServerService;
 import room.Room;
 import util.MyLog;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
@@ -535,4 +540,81 @@ public class Process
             }
         }
     }
+
+    void enrollFileProcess(int reqId, int operation,int roomNum, String userId, ByteBuffer attachment)
+    {
+        Client sender = ServerService.getSender(userId);
+
+        Room myCurRoom = sender.getMyCurRoom();
+
+        byte[] fileNameReceive = new byte[100];
+        int position = attachment.position();
+        int limit = attachment.limit();
+        attachment.get(fileNameReceive,0,limit-position);
+        String fileName = new String(removeZero(fileNameReceive), StandardCharsets.UTF_8);
+        String checkedFileName = myCurRoom.checkFileNameCheck(fileName);
+
+        int fileNum = myCurRoom.getFileNum();
+
+
+        Path path = Paths.get("./temp_db/" + roomNum + "/" + userId + "/" + fileNum + "/" + checkedFileName);
+        try
+        {
+            Files.createDirectories(path.getParent());
+        } catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+
+        myCurRoom.createNewFile(fileNum,checkedFileName,path);
+        ByteBuffer infoBuf = ByteBuffer.allocate(100);
+        infoBuf.putInt(fileNum);
+        infoBuf.put(checkedFileName.getBytes(StandardCharsets.UTF_8));
+        infoBuf.position(20);
+        infoBuf.putInt(100);
+        infoBuf.flip();
+
+        sender.send(reqId,13,0,0,infoBuf);
+
+    }
+
+    void fileUploadProcess(int reqId, int operation,int roomNum, String userId, ByteBuffer attachment)
+    {
+        Client sender = ServerService.getSender(userId);
+        Room myCurRoom = sender.getMyCurRoom();
+
+        int fileNum = attachment.getInt();
+        int filePosition = attachment.getInt();
+        byte[] fileReceive = new byte[filePosition];
+        attachment.get(fileReceive,0,filePosition);
+        byte[] fileChunk = fileReceive;
+        for (Room.File file : myCurRoom.getFileList())
+        {
+            if(file.getFileNum() == fileNum)
+            {
+                Path path = file.getPath();
+                try
+                {
+                    Files.write(path,fileChunk, StandardOpenOption.CREATE,StandardOpenOption.APPEND);
+                } catch (IOException e)
+                {
+                    e.printStackTrace();
+                }
+            }
+        }
+        sender.send(reqId,operation,0,0,ByteBuffer.allocate(0));
+    }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
