@@ -77,6 +77,8 @@ public class Room
         return fileList;
     }
 
+
+
     public String checkFileNameCheck(String fileName)
     {
         if (fileNameCheck.getOrDefault(fileName,-1) == -1)
@@ -163,6 +165,7 @@ public class Room
     }
 
 
+
     public class Text
     {
         int textId;
@@ -218,6 +221,7 @@ public class Room
         private int fileNum;
         private String fileName;
         private Path path;
+        private int fileSize = 0;
 
         public File(int fileNum, String fileName, Path path)
         {
@@ -239,6 +243,16 @@ public class Room
         public Path getPath()
         {
             return path;
+        }
+
+        public int getFileSize()
+        {
+            return fileSize;
+        }
+
+        public void incrementFileSize(int amount)
+        {
+            fileSize += amount;
         }
     }
 

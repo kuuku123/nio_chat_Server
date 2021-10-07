@@ -241,6 +241,8 @@ public class Client
                 process.fileUploadProcess(reqId,operation,roomNum,userId,attachment);
                 return;
             case fileList:
+                process.fileListProcess(reqId,operation,roomNum,userId,attachment);
+                return;
             case fileDownload:
                 process.fileDownloadProcess(reqId,operation,roomNum,userId,attachment);
                 return;

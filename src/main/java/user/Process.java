@@ -449,25 +449,6 @@ public class Process
             }
         }
 
-//        ByteBuffer responseBuf = ByteBuffer.allocate(10000);
-//        responseBuf.putInt(notRead);
-//        for (int i = 0; i < notRead; i++)
-//        {
-//            Room.Text text = toSend.get(i);
-//            int length = text.getText().length();
-//            int curPos = responseBuf.position();
-//            responseBuf.put(text.getSender().getBytes(StandardCharsets.UTF_8));
-//            responseBuf.position(curPos + 16);
-//            responseBuf.put(getTime().getBytes(StandardCharsets.UTF_8));
-//            responseBuf.position(curPos + 16+12);
-//            int notRoomRead = text.getNotRoomRead();
-//            responseBuf.putInt(text.getTextId());
-//            responseBuf.putInt(notRoomRead);
-//            responseBuf.putInt(length);
-//            responseBuf.put(text.getText().getBytes(StandardCharsets.UTF_8));
-//        }
-//        responseBuf.flip();
-
         synchronized (for_enterRoomProcess)
         {
             try
@@ -639,6 +620,7 @@ public class Process
                 try
                 {
                     Files.write(path,fileReceive, StandardOpenOption.CREATE,StandardOpenOption.APPEND);
+                    file.incrementFileSize(fileSize);
                 } catch (IOException e)
                 {
                     e.printStackTrace();
@@ -714,6 +696,35 @@ public class Process
         {
             e.printStackTrace();
         }
+    }
+
+    void fileListProcess(int reqId, int operation,int roomNum, String userId, ByteBuffer attachment)
+    {
+        Client sender = ServerService.getSender(userId);
+        Room myCurRoom = sender.getMyCurRoom();
+
+        ByteBuffer buffer = ByteBuffer.allocate(1000);
+        List<Room.File> fileList = myCurRoom.getFileList();
+        int totalSize = fileList.size();
+        buffer.putInt(totalSize);
+
+        for(int i = 0; i<totalSize; i++)
+        {
+            Room.File file = fileList.get(i);
+            int fileNum = file.getFileNum();
+            buffer.putInt(fileNum);
+
+            int curPos = buffer.position();
+            String fileName = file.getFileName();
+            buffer.put(fileName.getBytes(StandardCharsets.UTF_8));
+            buffer.position(curPos+16);
+            int fileSize = file.getFileSize();
+            buffer.putInt(fileSize);
+        }
+
+        buffer.flip();
+        sender.send(reqId,operation,0,0,buffer);
+
 
     }
 }
