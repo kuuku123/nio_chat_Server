@@ -412,7 +412,7 @@ public class Process
             Client client = curRoom.getUserList().get(i);;
             synchronized (for_enterRoomProcess)
             {
-                if (client.getSocketChannel().isOpen())
+                if (client.getSocketChannel().isOpen() && curRoom.getUserStates().getOrDefault(client,-1) == 1)
                 {
                     try
                     {
