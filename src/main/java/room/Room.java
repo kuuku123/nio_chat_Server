@@ -156,9 +156,9 @@ public class Room
         return notReadList;
     }
 
-    public File createNewFile(int fileNum, String fileName, Path path)
+    public File createNewFile(int fileNum, String fileName, Path path,int fileSize)
     {
-        File file = new File(fileNum, fileName, path);
+        File file = new File(fileNum, fileName, path,fileSize);
         fileList.add(file);
 
         return file;
@@ -221,13 +221,16 @@ public class Room
         private int fileNum;
         private String fileName;
         private Path path;
-        private int fileSize = 0;
+        private int fileSize;
+        private int uploadCheck;
 
-        public File(int fileNum, String fileName, Path path)
+        public File(int fileNum, String fileName, Path path, int fileSize)
         {
             this.fileNum = fileNum;
             this.fileName = fileName;
             this.path = path;
+            this.fileSize = fileSize;
+            this.uploadCheck = fileSize;
         }
 
         public int getFileNum()
@@ -250,9 +253,11 @@ public class Room
             return fileSize;
         }
 
-        public void incrementFileSize(int amount)
+        public boolean isItEndOfChunk(int chunk)
         {
-            fileSize += amount;
+            this.uploadCheck -= chunk;
+            if(this.uploadCheck == 0) return true;
+            else return false;
         }
     }
 

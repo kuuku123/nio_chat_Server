@@ -567,12 +567,13 @@ public class Process
 
         Room myCurRoom = sender.getMyCurRoom();
 
-        byte[] fileNameReceive = new byte[100];
-        int position = attachment.position();
-        int limit = attachment.limit();
-        attachment.get(fileNameReceive,0,limit-position);
+        attachment.getInt();
+
+        byte[] fileNameReceive = new byte[16];
+        attachment.get(fileNameReceive,0,16);
         String fileName = new String(removeZero(fileNameReceive), StandardCharsets.UTF_8);
         String checkedFileName = myCurRoom.checkFileNameCheck(fileName);
+        int fileSize = attachment.getInt();
 
         int fileNum = myCurRoom.getFileNum();
 
@@ -588,7 +589,7 @@ public class Process
 
         myCurRoom.incrementFileNum();
 
-        myCurRoom.createNewFile(fileNum,checkedFileName,path);
+        myCurRoom.createNewFile(fileNum,checkedFileName,path,fileSize);
         ByteBuffer infoBuf = ByteBuffer.allocate(100);
         infoBuf.putInt(fileNum);
         infoBuf.put(checkedFileName.getBytes(StandardCharsets.UTF_8));
@@ -610,17 +611,18 @@ public class Process
         int position = attachment.position();
         int limit = attachment.limit();
         int fileSize = limit - position;
+        boolean isItEnd = false;
         byte[] fileReceive = new byte[fileSize];
         attachment.get(fileReceive,0,fileSize);
         for (Room.File file : myCurRoom.getFileList())
         {
             if(file.getFileNum() == fileNum)
             {
+                isItEnd = file.isItEndOfChunk(fileSize);
                 Path path = file.getPath();
                 try
                 {
                     Files.write(path,fileReceive, StandardOpenOption.CREATE,StandardOpenOption.APPEND);
-                    file.incrementFileSize(fileSize);
                 } catch (IOException e)
                 {
                     e.printStackTrace();
@@ -629,6 +631,11 @@ public class Process
             }
         }
         sender.send(reqId,operation,0,0,ByteBuffer.allocate(0));
+
+        if(isItEnd)
+        {
+            //send broadcast
+        }
     }
 
     void fileDownloadProcess(int reqId, int operation,int roomNum, String userId, ByteBuffer attachment)
