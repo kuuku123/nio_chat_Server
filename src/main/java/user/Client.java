@@ -28,6 +28,7 @@ public class Client
     private Object for_enterRoomProcess = new Object();
     private Object for_inviteRoomProcess = new Object();
     private Object for_quitRoomProcess = new Object();
+    private Object for_uploadFileProcess = new Object();
 
     private AsynchronousSocketChannel socketChannel;
     private String userId = "not set yet";
@@ -217,7 +218,7 @@ public class Client
     void processOp(ByteBuffer attachment)
     {
         attachment.flip();
-        Process process = new Process(attachment,for_sendTextProcess,for_enterRoomProcess,for_inviteRoomProcess,for_quitRoomProcess);
+        Process process = new Process(attachment,for_sendTextProcess,for_enterRoomProcess,for_inviteRoomProcess,for_quitRoomProcess,for_uploadFileProcess);
         int reqId = process.getReqId();
         int operation = process.getOperation();
         String userId = process.getUserId();
@@ -241,6 +242,8 @@ public class Client
                 return;
             case fileList:
             case fileDownload:
+                process.fileDownloadProcess(reqId,operation,roomNum,userId,attachment);
+                return;
             case fileDelete:
             case createRoom:
                 process.createRoomProcess(reqId, operation, userId, attachment);

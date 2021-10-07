@@ -11,9 +11,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 import static util.ElseProcess.getTime;
 import static util.ElseProcess.removeZero;
@@ -26,8 +28,9 @@ public class Process
     private Object for_enterRoomProcess;
     private Object for_inviteRoomProcess;
     private Object for_quitRoomProcess;
+    private Object for_uploadFileProcess;
 
-    Process(ByteBuffer byteBuffer,Object for_sendTextProcess, Object for_enterRoomProcess, Object for_inviteRoomProcess,Object for_quitRoomProcess)
+    Process(ByteBuffer byteBuffer,Object for_sendTextProcess, Object for_enterRoomProcess, Object for_inviteRoomProcess,Object for_quitRoomProcess,Object for_uploadFileProcess)
     {
         this.byteBuffer = byteBuffer;
         logr = MyLog.getLogr();
@@ -35,6 +38,7 @@ public class Process
         this.for_enterRoomProcess = for_enterRoomProcess;
         this.for_inviteRoomProcess = for_inviteRoomProcess;
         this.for_quitRoomProcess = for_quitRoomProcess;
+        this.for_uploadFileProcess = for_uploadFileProcess;
     }
     int getReqId()
     {
@@ -592,7 +596,7 @@ public class Process
         int fileNum = myCurRoom.getFileNum();
 
 
-        Path path = Paths.get("./temp_db/" + roomNum + "/" + userId + "/" + fileNum + "/" + checkedFileName);
+        Path path = Paths.get("./temp_db/" + roomNum + "/" + fileNum + "/" + checkedFileName);
         try
         {
             Files.createDirectories(path.getParent());
@@ -643,6 +647,74 @@ public class Process
             }
         }
         sender.send(reqId,operation,0,0,ByteBuffer.allocate(0));
+    }
+
+    void fileDownloadProcess(int reqId, int operation,int roomNum, String userId, ByteBuffer attachment)
+    {
+        Client sender = ServerService.getSender(userId);
+        Room myCurRoom = sender.getMyCurRoom();
+
+        int fileNum = attachment.getInt();
+        int cutSize = attachment.getInt();
+        Path path = Paths.get("./temp_db/" + roomNum + "/" + fileNum);
+        List<Path> targetFileList = new ArrayList<>();
+        try
+        {
+            targetFileList = Files.list(path).collect(Collectors.toList());
+            Path targetFilePath = targetFileList.get(0);
+            Path fileName = targetFilePath.getFileName();
+            byte[] bytes = Files.readAllBytes(targetFilePath);
+            int totalSize = bytes.length;
+            int blockCount = totalSize / cutSize;
+            int blockLeftover = totalSize % cutSize;
+
+            for(int a = 0; a<=blockCount; a++)
+            {
+                byte[] small;
+                int c = 0;
+                if(a == blockCount)
+                {
+                    small = new byte[blockLeftover];
+                    for(int b = a*cutSize; b<a*cutSize+blockLeftover; b++)
+                    {
+                        small[c] = bytes[b];
+                        c++;
+                    }
+                }
+                else
+                {
+                    small = new byte[cutSize];
+                    for(int b = a*cutSize; b<a*cutSize+cutSize; b++)
+                    {
+                        small[c] = bytes[b];
+                        c++;
+                    }
+                }
+                ByteBuffer fileBuf = ByteBuffer.allocate(1000);
+                fileBuf.putInt(fileNum);
+                fileBuf.put(fileName.toString().getBytes(StandardCharsets.UTF_8));
+                fileBuf.position(20);
+                fileBuf.put(small);
+                fileBuf.flip();
+                synchronized (for_uploadFileProcess)
+                {
+                    try
+                    {
+                        sender.send(reqId,5,0, myCurRoom.getRoomNum(), fileBuf);
+                        for_uploadFileProcess.wait(500);
+                    } catch (InterruptedException e)
+                    {
+                        e.printStackTrace();
+                    }
+                }
+            }
+
+
+        } catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+
     }
 }
 
