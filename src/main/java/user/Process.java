@@ -566,6 +566,8 @@ public class Process
             e.printStackTrace();
         }
 
+        myCurRoom.incrementFileNum();
+
         myCurRoom.createNewFile(fileNum,checkedFileName,path);
         ByteBuffer infoBuf = ByteBuffer.allocate(100);
         infoBuf.putInt(fileNum);
@@ -585,9 +587,11 @@ public class Process
 
         int fileNum = attachment.getInt();
         int filePosition = attachment.getInt();
-        byte[] fileReceive = new byte[filePosition];
-        attachment.get(fileReceive,0,filePosition);
-        byte[] fileChunk = fileReceive;
+        int position = attachment.position();
+        int limit = attachment.limit();
+        int fileSize = limit - position;
+        byte[] fileReceive = new byte[fileSize];
+        attachment.get(fileReceive,0,fileSize);
         for (Room.File file : myCurRoom.getFileList())
         {
             if(file.getFileNum() == fileNum)
@@ -595,11 +599,12 @@ public class Process
                 Path path = file.getPath();
                 try
                 {
-                    Files.write(path,fileChunk, StandardOpenOption.CREATE,StandardOpenOption.APPEND);
+                    Files.write(path,fileReceive, StandardOpenOption.CREATE,StandardOpenOption.APPEND);
                 } catch (IOException e)
                 {
                     e.printStackTrace();
                 }
+                break;
             }
         }
         sender.send(reqId,operation,0,0,ByteBuffer.allocate(0));
