@@ -91,7 +91,7 @@ public class Room
             Integer integer = fileNameCheck.get(fileName);
             integer++;
             String[] split = fileName.split("\\.");
-            String checkedFileName = split[0] + "("+integer+")" + split[1];
+            String checkedFileName = split[0] + "("+integer+")." + split[1];
             fileNameCheck.put(fileName,integer);
             return checkedFileName;
         }

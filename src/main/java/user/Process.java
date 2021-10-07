@@ -614,11 +614,16 @@ public class Process
         boolean isItEnd = false;
         byte[] fileReceive = new byte[fileSize];
         attachment.get(fileReceive,0,fileSize);
+
+        String fileName = "";
+        int totalFileSize = -1;
         for (Room.File file : myCurRoom.getFileList())
         {
             if(file.getFileNum() == fileNum)
             {
                 isItEnd = file.isItEndOfChunk(fileSize);
+                fileName = file.getFileName();
+                totalFileSize = file.getFileSize();
                 Path path = file.getPath();
                 try
                 {
@@ -635,6 +640,31 @@ public class Process
         if(isItEnd)
         {
             //send broadcast
+            for (Client client : myCurRoom.getUserList())
+            {
+                ByteBuffer infoBuf = ByteBuffer.allocate(100);
+                infoBuf.putInt(myCurRoom.getRoomNum());
+                infoBuf.put(sender.getUserId().getBytes(StandardCharsets.UTF_8));
+                infoBuf.position(20);
+                infoBuf.put(getTime().getBytes(StandardCharsets.UTF_8));
+                infoBuf.position(32);
+                infoBuf.putInt(fileNum);
+                infoBuf.put(fileName.getBytes(StandardCharsets.UTF_8));
+                infoBuf.position(52);
+                infoBuf.putInt(totalFileSize);
+                infoBuf.flip();
+                synchronized (for_uploadFileProcess)
+                {
+                    try
+                    {
+                        client.send(-1,0,3,0,infoBuf);
+                        for_uploadFileProcess.wait(100);
+                    } catch (InterruptedException e)
+                    {
+                        e.printStackTrace();
+                    }
+                }
+            }
         }
     }
 
@@ -731,8 +761,6 @@ public class Process
 
         buffer.flip();
         sender.send(reqId,operation,0,0,buffer);
-
-
     }
 }
 
