@@ -123,8 +123,11 @@ public class Client
                 try
                 {
                     logr.severe("[receive fail" + socketChannel.getRemoteAddress() + " : " + Thread.currentThread().getName() + "]");
-                    Map<Client, Integer> userStates = myCurRoom.getUserStates();
-                    userStates.put(Client.this,0);
+                    if(myCurRoom != null)
+                    {
+                        Map<Client, Integer> userStates = myCurRoom.getUserStates();
+                        userStates.put(Client.this,0);
+                    }
                     setState(2);
                     socketChannel.close();
                 } catch (IOException e)
@@ -249,6 +252,8 @@ public class Client
                 process.inviteRoomProcess(reqId, operation, roomNum, userId, attachment);
                 return;
             case roomUserList:
+                process.roomUserListProcess(reqId,operation,roomNum,userId,attachment);
+                return;
             case roomList:
                 process.roomListProcess(reqId, operation, roomNum, userId, attachment);
                 return;

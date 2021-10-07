@@ -71,6 +71,12 @@ public class Process
                 {
                     client.send(reqId, operation, 0, 0, ByteBuffer.allocate(0));
                     client.setState(1);
+                    for (Room room : client.getMyRoomList())
+                    {
+                        Map<Client, Integer> userStates = room.getUserStates();
+                        userStates.put(client,2);
+                    }
+
                     logr.info(userId + " 재로그인 성공");
                 }
 
@@ -80,6 +86,11 @@ public class Process
                     client.setSocketChannel(newClient.getSocketChannel());
                     clientList.remove(newClient);
                     client.setState(1);
+                    for (Room room : client.getMyRoomList())
+                    {
+                        Map<Client, Integer> userStates = room.getUserStates();
+                        userStates.put(client,2);
+                    }
                     if(client.getNotYetReadBuffers().size()>0)
                     {
                         for (ByteBuffer notYetReadBuffer : client.getNotYetReadBuffers())
@@ -127,6 +138,8 @@ public class Process
                 {
                     logr.info(userId + " logged out , connection info deleted");
                     client.send(reqid, operation, 0, 0, ByteBuffer.allocate(0));
+                    Map<Client, Integer> userStates = client.getMyCurRoom().getUserStates();
+                    userStates.put(client,0);
                     client.setMyCurRoom(null);
                     client.setState(0);
                     return;
@@ -539,6 +552,28 @@ public class Process
                 break;
             }
         }
+    }
+
+    void roomUserListProcess(int reqId, int operation,int roomNum, String userId, ByteBuffer attachment)
+    {
+        Client sender = ServerService.getSender(userId);
+        Room myCurRoom = sender.getMyCurRoom();
+
+        ByteBuffer infoBuf = ByteBuffer.allocate(1000);
+        int size = myCurRoom.getUserList().size();
+        infoBuf.putInt(size);
+        for (Map.Entry<Client, Integer> clientIntegerEntry : myCurRoom.getUserStates().entrySet())
+        {
+            int curPos = infoBuf.position();
+            Client key = clientIntegerEntry.getKey();
+            Integer value = clientIntegerEntry.getValue();
+            infoBuf.put(key.getUserId().getBytes(StandardCharsets.UTF_8));
+            infoBuf.position(curPos + 16);
+            infoBuf.putInt(value);
+        }
+        infoBuf.flip();
+        sender.send(reqId,operation,0,0,infoBuf);
+
     }
 
     void enrollFileProcess(int reqId, int operation,int roomNum, String userId, ByteBuffer attachment)
