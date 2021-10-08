@@ -4,6 +4,7 @@ import adminserver.ServerService;
 import room.Room;
 import util.MyLog;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -12,6 +13,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
@@ -29,8 +31,9 @@ public class Process
     private Object for_inviteRoomProcess;
     private Object for_quitRoomProcess;
     private Object for_uploadFileProcess;
+    private Object for_deleteFileProcess;
 
-    Process(ByteBuffer byteBuffer,Object for_sendTextProcess, Object for_enterRoomProcess, Object for_inviteRoomProcess,Object for_quitRoomProcess,Object for_uploadFileProcess)
+    Process(ByteBuffer byteBuffer,Object for_sendTextProcess, Object for_enterRoomProcess, Object for_inviteRoomProcess,Object for_quitRoomProcess,Object for_uploadFileProcess,Object for_deleteFileProcess)
     {
         this.byteBuffer = byteBuffer;
         logr = MyLog.getLogr();
@@ -39,6 +42,7 @@ public class Process
         this.for_inviteRoomProcess = for_inviteRoomProcess;
         this.for_quitRoomProcess = for_quitRoomProcess;
         this.for_uploadFileProcess = for_uploadFileProcess;
+        this.for_deleteFileProcess = for_deleteFileProcess;
     }
     int getReqId()
     {
@@ -761,6 +765,67 @@ public class Process
 
         buffer.flip();
         sender.send(reqId,operation,0,0,buffer);
+    }
+
+    void fileDeleteProcess(int reqId, int operation,int roomNum, String userId, ByteBuffer attachment)
+    {
+        Client sender = ServerService.getSender(userId);
+        Room myCurRoom = sender.getMyCurRoom();
+
+        int fileNum = attachment.getInt();
+        List<Room.File> fileList = myCurRoom.getFileList();
+        String fileName = "";
+        int fileSize = 0;
+        for (Room.File file : fileList)
+        {
+            if(file.getFileNum() == fileNum)
+            {
+                fileName = file.getFileName();
+                fileSize = file.getFileSize();
+                Map<String, Integer> fileNameCheck = myCurRoom.getFileNameCheck();
+                fileNameCheck.remove(file.getFileName());
+                Path path = file.getPath();
+                try
+                {
+                    Files.walk(path)
+                            .sorted(Comparator.reverseOrder())
+                            .map(Path::toFile)
+                            .forEach(File::delete);
+                } catch (IOException e)
+                {
+                    e.printStackTrace();
+                }
+                fileList.remove(file);
+                break;
+            }
+        }
+        sender.send(reqId,operation,0,0,ByteBuffer.allocate(0));
+
+        for (Client client : myCurRoom.getUserList())
+        {
+            ByteBuffer infoBuf = ByteBuffer.allocate(100);
+            infoBuf.putInt(myCurRoom.getRoomNum());
+            infoBuf.put(sender.getUserId().getBytes(StandardCharsets.UTF_8));
+            infoBuf.position(20);
+            infoBuf.put(getTime().getBytes(StandardCharsets.UTF_8));
+            infoBuf.position(32);
+            infoBuf.putInt(fileNum);
+            infoBuf.put(fileName.getBytes(StandardCharsets.UTF_8));
+            infoBuf.position(52);
+            infoBuf.putInt(fileSize);
+            infoBuf.flip();
+            synchronized (for_deleteFileProcess)
+            {
+                try
+                {
+                    client.send(-1,0,4,0,infoBuf);
+                    for_deleteFileProcess.wait(100);
+                } catch (InterruptedException e)
+                {
+                    e.printStackTrace();
+                }
+            }
+        }
     }
 }
 

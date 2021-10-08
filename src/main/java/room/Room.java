@@ -77,7 +77,10 @@ public class Room
         return fileList;
     }
 
-
+    public Map<String, Integer> getFileNameCheck()
+    {
+        return fileNameCheck;
+    }
 
     public String checkFileNameCheck(String fileName)
     {
