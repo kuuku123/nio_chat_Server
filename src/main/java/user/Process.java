@@ -723,7 +723,7 @@ public class Process
                 {
                     try
                     {
-                        sender.send(reqId,5,0, myCurRoom.getRoomNum(), fileBuf);
+                        sender.send(reqId,5,0, 0, fileBuf);
                         for_uploadFileProcess.wait(500);
                     } catch (InterruptedException e)
                     {
