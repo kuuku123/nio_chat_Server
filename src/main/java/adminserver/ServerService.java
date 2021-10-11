@@ -1,8 +1,9 @@
 package adminserver;
 
 import remoteroomserver.RemoteRoomServer;
-import room.Room;
-import user.Client;
+import domain.Room;
+import domain.Client;
+import service.ClientRequestService;
 import util.MyLog;
 
 import java.io.IOException;
@@ -25,14 +26,16 @@ public class ServerService
     public static List<Room> serverRoomList = new Vector<>();
     public static List<RemoteRoomServer> remoteRoomSeverList = new Vector<>();
     public static int global_textId = -1;
+    private final ClientRequestService crs;
 
-    public ServerService()
+    public ServerService(ClientRequestService crs)
     {
+        this.crs = crs;
         this.logr = MyLog.getLogr();
     }
 
 
-    void startServer()
+    public void startServer()
     {
         try
         {
@@ -88,6 +91,7 @@ public class ServerService
                 else
                 {
                     Client client = new Client(socketChannel);
+                    crs.receive(client);
                     clientList.add(client);
                     logr.info("[연결 개수: " + clientList.size() + "]");
                 }
@@ -124,9 +128,5 @@ public class ServerService
         return sender;
     }
 
-    public static void main(String[] args)
-    {
-        ServerService serverExample = new ServerService();
-        serverExample.startServer();
-    }
+
 }

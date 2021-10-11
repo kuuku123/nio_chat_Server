@@ -1,8 +1,10 @@
-package user;
+package service;
 
 import adminserver.ServerService;
-import room.Room;
+import domain.Client;
+import domain.Room;
 import util.MyLog;
+import util.OperationEnum;
 
 import java.io.File;
 import java.io.IOException;
@@ -22,39 +24,33 @@ import java.util.stream.Collectors;
 import static util.ElseProcess.getTime;
 import static util.ElseProcess.removeZero;
 
-public class Process
+public class ProcessService
 {
-    ByteBuffer byteBuffer;
-    private Logger logr;
-    private Object for_sendTextProcess;
-    private Object for_enterRoomProcess;
-    private Object for_inviteRoomProcess;
-    private Object for_quitRoomProcess;
-    private Object for_uploadFileProcess;
-    private Object for_deleteFileProcess;
+    private final ClientResponseService crs;
+    private final Logger logr = MyLog.getLogr();
+    private Object for_sendTextProcess = new Object();
+    private Object for_enterRoomProcess = new Object();
+    private Object for_inviteRoomProcess = new Object();
+    private Object for_quitRoomProcess = new Object();
+    private Object for_uploadFileProcess = new Object();
+    private Object for_deleteFileProcess = new Object();
 
-    Process(ByteBuffer byteBuffer,Object for_sendTextProcess, Object for_enterRoomProcess, Object for_inviteRoomProcess,Object for_quitRoomProcess,Object for_uploadFileProcess,Object for_deleteFileProcess)
+    public ProcessService()
     {
-        this.byteBuffer = byteBuffer;
-        logr = MyLog.getLogr();
-        this.for_sendTextProcess  = for_sendTextProcess;
-        this.for_enterRoomProcess = for_enterRoomProcess;
-        this.for_inviteRoomProcess = for_inviteRoomProcess;
-        this.for_quitRoomProcess = for_quitRoomProcess;
-        this.for_uploadFileProcess = for_uploadFileProcess;
-        this.for_deleteFileProcess = for_deleteFileProcess;
+        this.crs = new ClientResponseService(for_sendTextProcess,for_enterRoomProcess,for_inviteRoomProcess,for_quitRoomProcess,for_uploadFileProcess,for_deleteFileProcess);
     }
-    int getReqId()
+
+    int getReqId(ByteBuffer byteBuffer)
     {
         return byteBuffer.getInt();
     }
 
-    int getOperation()
+    int getOperation(ByteBuffer byteBuffer)
     {
         return byteBuffer.getInt();
     }
 
-    String getUserId()
+    String getUserId(ByteBuffer byteBuffer)
     {
         byte[] reqUserId = new byte[16];
         byteBuffer.get(reqUserId,0,16);
@@ -62,10 +58,75 @@ public class Process
         return new String(removeZero(reqUserId),StandardCharsets.UTF_8);
     }
 
-    int getRoomNum()
+    int getRoomNum(ByteBuffer byteBuffer)
     {
         return byteBuffer.getInt();
     }
+
+
+    public void processOp(ByteBuffer attachment)
+    {
+        attachment.flip();
+        int reqId = getReqId(attachment);
+        int operation = getOperation(attachment);
+        String userId = getUserId(attachment);
+        int roomNum =getRoomNum(attachment);
+        OperationEnum op = OperationEnum.fromInteger(operation);
+        switch (op)
+        {
+            case login:
+                loginProcess(reqId, operation, userId, attachment);
+                logr.info("login process completed");
+                return;
+            case logout:
+                logoutProcess(reqId, operation, userId, attachment);
+                logr.info("logout process completed");
+                return;
+            case sendText:
+                sendTextProcess(reqId, operation, userId, attachment);
+                return;
+            case fileUpload:
+                fileUploadProcess(reqId,operation,roomNum,userId,attachment);
+                return;
+            case fileList:
+                fileListProcess(reqId,operation,roomNum,userId,attachment);
+                return;
+            case fileDownload:
+                fileDownloadProcess(reqId,operation,roomNum,userId,attachment);
+                return;
+            case fileDelete:
+                fileDeleteProcess(reqId,operation,roomNum,userId,attachment);
+                return;
+            case createRoom:
+                createRoomProcess(reqId, operation, userId, attachment);
+                return;
+            case quitRoom:
+                quitRoomProcess(reqId,operation,roomNum,userId,attachment);
+                return;
+            case inviteRoom:
+                inviteRoomProcess(reqId, operation, roomNum, userId, attachment);
+                return;
+            case roomUserList:
+                roomUserListProcess(reqId,operation,roomNum,userId,attachment);
+                return;
+            case roomList:
+                roomListProcess(reqId, operation, roomNum, userId, attachment);
+                return;
+            case enterRoom:
+                enterRoomProcess(reqId, operation, roomNum, userId, attachment);
+                return;
+            case enrollFile:
+                enrollFileProcess(reqId,operation,roomNum,userId,attachment);
+                return;
+            case fileInfo:
+                return;
+            case exitRoom:
+                exitRoomProcess(reqId,operation,roomNum,userId,attachment);
+                return;
+
+        }
+    }
+
 
     public void loginProcess(int reqId, int operation, String userId, ByteBuffer data)
     {
@@ -77,7 +138,7 @@ public class Process
             {
                 if (client.getSocketChannel().isOpen() && client.getState() == 0)
                 {
-                    client.send(reqId, operation, 0, 0, ByteBuffer.allocate(0));
+                    crs.send(reqId, operation, 0, 0, ByteBuffer.allocate(0),client);
                     client.setState(1);
                     for (Room room : client.getMyRoomList())
                     {
@@ -107,18 +168,20 @@ public class Process
                             {
                                 try
                                 {
-                                    client.send(-1,0,2,0,notYetReadBuffer);
+                                    crs.send(-1,0,2,0,notYetReadBuffer,client);
                                     for_sendTextProcess.wait(100);
+                                    for_sendTextProcess.wait(1);
                                 } catch (InterruptedException e)
                                 {
                                     e.printStackTrace();
                                 }
                             }
                         }
+
                         client.getNotYetReadBuffers().clear();
                     }
 
-                    client.send(reqId, operation, 0, 0, ByteBuffer.allocate(0));
+                    crs.send(reqId, operation, 0, 0, ByteBuffer.allocate(0),client);
 
                     logr.info("[연결 개수: " + clientList.size() + "]");
                     logr.info(userId + " 재로그인 성공");
@@ -131,7 +194,7 @@ public class Process
         client1.setUserId(userId);
         client1.setState(1);
         logr.info(userId + " logged in");
-        client1.send(reqId, operation, 0, 0, addressesBuf);
+        crs.send(reqId, operation, 0, 0, addressesBuf,client1);
     }
 
 
@@ -145,7 +208,7 @@ public class Process
                 try
                 {
                     logr.info(userId + " logged out , connection info deleted");
-                    client.send(reqid, operation, 0, 0, ByteBuffer.allocate(0));
+                    crs.send(reqid, operation, 0, 0, ByteBuffer.allocate(0),client);
                     Map<Client, Integer> userStates = client.getMyCurRoom().getUserStates();
                     userStates.put(client,0);
                     client.setMyCurRoom(null);
@@ -170,7 +233,7 @@ public class Process
                 currentSender = client;
                 if (client.getMyRoomList().size() == 0 || client.getMyCurRoom() == null)
                 {
-                    client.send(reqId, operation, 0, 3, ByteBuffer.allocate(0));
+                    crs.send(reqId, operation, 0, 3, ByteBuffer.allocate(0),client);
                     return;
                 }
             }
@@ -194,7 +257,7 @@ public class Process
                 {
                     try
                     {
-                        client.send(reqId, operation, 0, 0, ByteBuffer.allocate(0));
+                        crs.send(reqId, operation, 0, 0, ByteBuffer.allocate(0),client);
                         for_sendTextProcess.wait(100);
                     } catch (InterruptedException e)
                     {
@@ -218,7 +281,7 @@ public class Process
             {
                 try
                 {
-                    client.send(-1, operation, 2, 0, chatData);
+                    crs.send(-1, operation, 2, 0, chatData,client);
                     for_sendTextProcess.wait(100);
                 } catch (InterruptedException e)
                 {
@@ -260,7 +323,7 @@ public class Process
         forRoom.putInt(roomNum);
         forRoom.flip();
         logr.info("[roomName : " + roomName + " roomNum : " + roomNum + " created by " + userId + " ]");
-        sender.send(reqId, operation, 0, 0, forRoom);
+        crs.send(reqId, operation, 0, 0, forRoom,sender);
     }
 
     public void inviteRoomProcess(int reqId, int operation, int roomNum, String userId, ByteBuffer data)
@@ -347,7 +410,7 @@ public class Process
             {
                 try
                 {
-                    roomUser.send(-1, operation, 0, 0, infoBuf);
+                    crs.send(-1, operation, 0, 0, infoBuf,roomUser);
                     for_inviteRoomProcess.wait(100);
                 } catch (InterruptedException e)
                 {
@@ -355,8 +418,8 @@ public class Process
                 }
             }
         }
-        if (success) invitee.send(reqId, operation, 0, 0, ByteBuffer.allocate(0));
-        else invitee.send(reqId, operation, 0, 1, ByteBuffer.allocate(0));
+        if (success) crs.send(reqId, operation, 0, 0, ByteBuffer.allocate(0),invitee);
+        else crs.send(reqId, operation, 0, 1, ByteBuffer.allocate(0),invitee);
     }
 
 
@@ -383,7 +446,7 @@ public class Process
             byteBuffer.putInt(notRead);
         }
         byteBuffer.flip();
-        sender.send(reqId, operation, 0, 0, byteBuffer);
+        crs.send(reqId, operation, 0, 0, byteBuffer,sender);
     }
 
 
@@ -443,7 +506,7 @@ public class Process
                     try
                     {
                         if (client.getMyCurRoom() == null) continue;
-                        client.send(-1, operation, 5, 0, enterRoomBroadcast);
+                        crs.send(-1, operation, 5, 0, enterRoomBroadcast,client);
                         for_enterRoomProcess.wait(100);
                     } catch (InterruptedException e)
                     {
@@ -457,7 +520,7 @@ public class Process
         {
             try
             {
-                sender.send(reqId, operation, 0, 0, ByteBuffer.allocate(0));
+                crs.send(reqId, operation, 0, 0, ByteBuffer.allocate(0),sender);
                 for_enterRoomProcess.wait(100);
             } catch (InterruptedException e)
             {
@@ -487,7 +550,7 @@ public class Process
                 {
                     try
                     {
-                        sender.send(reqId,operation,0,0,ByteBuffer.allocate(0));
+                        crs.send(reqId,operation,0,0,ByteBuffer.allocate(0),sender);
                         for_quitRoomProcess.wait(100);
                     } catch (InterruptedException e)
                     {
@@ -513,7 +576,7 @@ public class Process
             {
                 try
                 {
-                    client.send(-1, operation, 1, 0, allocate);
+                    crs.send(-1, operation, 1, 0, allocate,client);
                     for_quitRoomProcess.wait(100);
                 } catch (InterruptedException e)
                 {
@@ -537,7 +600,7 @@ public class Process
             {
                 Map<Client, Integer> userStates = room.getUserStates();
                 userStates.put(sender,2);
-                sender.send(reqId,operation,0,0,ByteBuffer.allocate(0));
+                crs.send(reqId,operation,0,0,ByteBuffer.allocate(0),sender);
                 break;
             }
         }
@@ -561,7 +624,7 @@ public class Process
             infoBuf.putInt(value);
         }
         infoBuf.flip();
-        sender.send(reqId,operation,0,0,infoBuf);
+        crs.send(reqId,operation,0,0,infoBuf,sender);
 
     }
 
@@ -601,7 +664,7 @@ public class Process
         infoBuf.putInt(100);
         infoBuf.flip();
 
-        sender.send(reqId,13,0,0,infoBuf);
+        crs.send(reqId,13,0,0,infoBuf,sender);
 
     }
 
@@ -639,7 +702,7 @@ public class Process
                 break;
             }
         }
-        sender.send(reqId,operation,0,0,ByteBuffer.allocate(0));
+        crs.send(reqId,operation,0,0,ByteBuffer.allocate(0),sender);
 
         if(isItEnd)
         {
@@ -661,7 +724,7 @@ public class Process
                 {
                     try
                     {
-                        client.send(-1,0,3,0,infoBuf);
+                        crs.send(-1,0,3,0,infoBuf,client);
                         for_uploadFileProcess.wait(100);
                     } catch (InterruptedException e)
                     {
@@ -723,7 +786,7 @@ public class Process
                 {
                     try
                     {
-                        sender.send(reqId,5,0, 0, fileBuf);
+                        crs.send(reqId,5,0, 0, fileBuf,sender);
                         for_uploadFileProcess.wait(500);
                     } catch (InterruptedException e)
                     {
@@ -764,7 +827,7 @@ public class Process
         }
 
         buffer.flip();
-        sender.send(reqId,operation,0,0,buffer);
+        crs.send(reqId,operation,0,0,buffer,sender);
     }
 
     void fileDeleteProcess(int reqId, int operation,int roomNum, String userId, ByteBuffer attachment)
@@ -799,7 +862,7 @@ public class Process
                 break;
             }
         }
-        sender.send(reqId,operation,0,0,ByteBuffer.allocate(0));
+        crs.send(reqId,operation,0,0,ByteBuffer.allocate(0),sender);
 
         for (Client client : myCurRoom.getUserList())
         {
@@ -818,7 +881,7 @@ public class Process
             {
                 try
                 {
-                    client.send(-1,0,4,0,infoBuf);
+                    crs.send(-1,0,4,0,infoBuf,client);
                     for_deleteFileProcess.wait(100);
                 } catch (InterruptedException e)
                 {
@@ -828,16 +891,3 @@ public class Process
         }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-

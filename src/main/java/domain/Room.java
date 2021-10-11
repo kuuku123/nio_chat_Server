@@ -1,6 +1,4 @@
-package room;
-
-import user.Client;
+package domain;
 
 import java.nio.file.Path;
 import java.util.*;
