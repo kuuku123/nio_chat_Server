@@ -170,7 +170,7 @@ public class ProcessService
                                 {
                                     crs.send(-1,0,2,0,notYetReadBuffer,client);
                                     for_sendTextProcess.wait(100);
-                                    for_sendTextProcess.wait(1);
+                                    for_sendTextProcess.wait(100);
                                 } catch (InterruptedException e)
                                 {
                                     e.printStackTrace();
