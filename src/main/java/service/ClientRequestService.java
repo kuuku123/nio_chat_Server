@@ -28,18 +28,18 @@ public class ClientRequestService
             @Override
             public void completed(Integer result, ByteBuffer attachment)
             {
-                try
-                {
-                    logr.info("[요청 처리: " + client.getSocketChannel().getRemoteAddress() + ": " + Thread.currentThread().getName() + "]");
-                    processService.processOp(attachment);
-                    ByteBuffer readBuffer = ByteBuffer.allocate(10000);
-                    if (client.getSocketChannel() != null) client.getSocketChannel().read(readBuffer, readBuffer, this);
-                } catch (IOException e)
-                {
-                } catch (BufferUnderflowException e)
-                {
-                    logr.info("receive 하는중에 BufferUnderflow 발생함");
-                }
+                    try
+                    {
+                        logr.info("[요청 처리: " + client.getSocketChannel().getRemoteAddress() + ": " + Thread.currentThread().getName() + "]");
+                        processService.processOp(attachment);
+                        ByteBuffer readBuffer = ByteBuffer.allocate(10000);
+                        if (client.getSocketChannel() != null) client.getSocketChannel().read(readBuffer, readBuffer, this);
+                    } catch (IOException e)
+                    {
+                    } catch (BufferUnderflowException e)
+                    {
+                        logr.info("receive 하는중에 BufferUnderflow 발생함");
+                    }
             }
 
             @Override
