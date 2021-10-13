@@ -7,8 +7,11 @@ import java.io.IOException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.channels.CompletionHandler;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.logging.Logger;
+
+import static util.ElseProcess.getTime;
 
 public class ClientRequestService
 {
@@ -28,6 +31,10 @@ public class ClientRequestService
             @Override
             public void completed(Integer result, ByteBuffer attachment)
             {
+                if(result == -1)
+                {
+                    System.out.println("slkdjfslfjlsjklsdjfklsjfssjlfskdjft ");
+                }
                     try
                     {
                         logr.info("[요청 처리: " + client.getSocketChannel().getRemoteAddress() + ": " + Thread.currentThread().getName() + "]");
@@ -48,13 +55,7 @@ public class ClientRequestService
                 try
                 {
                     logr.severe("[receive fail" + client.getSocketChannel().getRemoteAddress() + " : " + Thread.currentThread().getName() + "]");
-                    if(client.getMyCurRoom() != null)
-                    {
-                        Map<Client, Integer> userStates = client.getMyCurRoom().getUserStates();
-                        userStates.put(client,3);
-                    }
-                    client.setState(2);
-                    client.getSocketChannel().close();
+                    processService.closeBroadcast(client);
                 } catch (IOException e)
                 {
                 }

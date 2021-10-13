@@ -894,4 +894,33 @@ public class ProcessService
             }
         }
     }
+
+    public void closeBroadcast(Client client)
+    {
+
+        if(client.getMyCurRoom() != null)
+        {
+            Map<Client, Integer> userStates = client.getMyCurRoom().getUserStates();
+            userStates.put(client,3);
+            for (Client client1 : client.getMyCurRoom().getUserList())
+            {
+                ByteBuffer allocate = ByteBuffer.allocate(100);
+                allocate.putInt(client.getMyCurRoom().getRoomNum());
+                allocate.put(client.getUserId().getBytes(StandardCharsets.UTF_8));
+                allocate.position(20);
+                allocate.put(getTime().getBytes(StandardCharsets.UTF_8));
+                allocate.position(32);
+                allocate.flip();
+                crs.send(-1,0,6,0,allocate,client1);
+            }
+        }
+        client.setState(2);
+        try
+        {
+            client.getSocketChannel().close();
+        } catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+    }
 }
