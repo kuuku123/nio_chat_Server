@@ -2,7 +2,9 @@ package service;
 
 import adminserver.ServerService;
 import domain.Client;
+import domain.MyFile;
 import domain.Room;
+import domain.Text;
 import util.MyLog;
 import util.OperationEnum;
 
@@ -250,7 +252,7 @@ public class ProcessService
 
         ServerService.global_textId++;
         int textId = ServerService.global_textId;
-        currentSender.getMyCurRoom().createAndAddText(textId, userId, text);
+        currentSender.getMyCurRoom().createAndAddText(textId, userId, text, currentSender.getMyCurRoom());
         int notRead = currentSender.getMyCurRoom().getNewTextNotRoomRead();
 
         for (Client client : currentSender.getMyCurRoom().getUserList())
@@ -467,13 +469,13 @@ public class ProcessService
                 break;
             }
         }
-        List<Room.Text> chatLog = curRoom.getChatLog();
+        List<Text> chatLog = curRoom.getChatLog();
         int notRead = curRoom.getUserNotRoomRead(userId);
-        List<Room.Text> toSend = curRoom.getUserNotRoomReadTextList(userId);
+        List<Text> toSend = curRoom.getUserNotRoomReadTextList(userId);
         Map<Client, Integer> userStates = curRoom.getUserStates();
         userStates.put(sender,1);
         boolean everybodyRead = true;
-        for (Room.Text text : chatLog)
+        for (Text text : chatLog)
         {
             if (text.getNotRoomRead() != 0)
             {
@@ -688,7 +690,7 @@ public class ProcessService
 
         String fileName = "";
         int totalFileSize = -1;
-        for (Room.File file : myCurRoom.getFileList())
+        for (MyFile file : myCurRoom.getFileList())
         {
             if(file.getFileNum() == fileNum)
             {
@@ -812,13 +814,13 @@ public class ProcessService
         Room myCurRoom = sender.getMyCurRoom();
 
         ByteBuffer buffer = ByteBuffer.allocate(1000);
-        List<Room.File> fileList = myCurRoom.getFileList();
+        List<MyFile> fileList = myCurRoom.getFileList();
         int totalSize = fileList.size();
         buffer.putInt(totalSize);
 
         for(int i = 0; i<totalSize; i++)
         {
-            Room.File file = fileList.get(i);
+            MyFile file = fileList.get(i);
             int fileNum = file.getFileNum();
             buffer.putInt(fileNum);
 
@@ -840,10 +842,10 @@ public class ProcessService
         Room myCurRoom = sender.getMyCurRoom();
 
         int fileNum = attachment.getInt();
-        List<Room.File> fileList = myCurRoom.getFileList();
+        List<MyFile> fileList = myCurRoom.getFileList();
         String fileName = "";
         int fileSize = 0;
-        for (Room.File file : fileList)
+        for (MyFile file : fileList)
         {
             if(file.getFileNum() == fileNum)
             {

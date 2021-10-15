@@ -9,7 +9,7 @@ public class Room
     private String roomName;
     private List<Client> userList = new Vector<>();
     private List<Text> chatLog = new ArrayList<>();
-    private List<File> fileList = new Vector<>();
+    private List<MyFile> fileList = new Vector<>();
     private Map<Client,Integer> userStates = new HashMap<>();
     private int fileNum = 0;
     private Map<String,Integer> fileNameCheck = new HashMap<>();
@@ -70,7 +70,7 @@ public class Room
         return fileNum;
     }
 
-    public List<File> getFileList()
+    public List<MyFile> getFileList()
     {
         return fileList;
     }
@@ -118,9 +118,9 @@ public class Room
         }
     }
 
-    public void createAndAddText(int textId, String sender, String text)
+    public void createAndAddText(int textId, String sender, String text,Room room)
     {
-        Text newText = new Text(textId, sender, text);
+        Text newText = new Text(textId, sender, text,room);
         this.chatLog.add(newText);
     }
 
@@ -157,109 +157,11 @@ public class Room
         return notReadList;
     }
 
-    public File createNewFile(int fileNum, String fileName, Path path,int fileSize)
+    public MyFile createNewFile(int fileNum, String fileName, Path path, int fileSize)
     {
-        File file = new File(fileNum, fileName, path,fileSize);
+        MyFile file = new MyFile(fileNum, fileName, path,fileSize);
         fileList.add(file);
 
         return file;
     }
-
-
-
-    public class Text
-    {
-        int textId;
-        String sender;
-        String text;
-        Map<String, Integer> readCheck = new HashMap<>();
-        int notRoomRead = 0;
-
-        public Text(int textId, String sender, String text)
-        {
-            this.textId = textId;
-            this.sender = sender;
-            this.text = text;
-            for (Client user : Room.this.userList)
-            {
-                if (user.getSocketChannel().isOpen() && user.getMyCurRoom() != null && userStates.getOrDefault(user,-1) == 1 && user.getState() == 1) readCheck.put(user.getUserId(), 1);
-                else
-                {
-                    readCheck.put(user.getUserId(), 0);
-                    notRoomRead++;
-                }
-            }
-        }
-
-        public int getTextId()
-        {
-            return textId;
-        }
-
-        public String getSender()
-        {
-            return sender;
-        }
-
-        public String getText()
-        {
-            return text;
-        }
-
-        public Map<String, Integer> getReadCheck()
-        {
-            return readCheck;
-        }
-
-        public int getNotRoomRead()
-        {
-            return notRoomRead;
-        }
-    }
-
-    public class File
-    {
-        private int fileNum;
-        private String fileName;
-        private Path path;
-        private int fileSize;
-        private int uploadCheck;
-
-        public File(int fileNum, String fileName, Path path, int fileSize)
-        {
-            this.fileNum = fileNum;
-            this.fileName = fileName;
-            this.path = path;
-            this.fileSize = fileSize;
-            this.uploadCheck = fileSize;
-        }
-
-        public int getFileNum()
-        {
-            return fileNum;
-        }
-
-        public String getFileName()
-        {
-            return fileName;
-        }
-
-        public Path getPath()
-        {
-            return path;
-        }
-
-        public int getFileSize()
-        {
-            return fileSize;
-        }
-
-        public boolean isItEndOfChunk(int chunk)
-        {
-            this.uploadCheck -= chunk;
-            if(this.uploadCheck == 0) return true;
-            else return false;
-        }
-    }
-
 }
