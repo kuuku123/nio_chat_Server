@@ -33,7 +33,8 @@ public class ClientRequestService
             {
                 if(result == -1)
                 {
-                    System.out.println("slkdjfslfjlsjklsdjfklsjfssjlfskdjft ");
+                    processService.closeBroadcast(client);
+                    return;
                 }
                     try
                     {
