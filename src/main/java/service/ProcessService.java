@@ -138,23 +138,7 @@ public class ProcessService
         {
             if (client.getUserId().equals(userId))
             {
-                if (!client.getSocketChannel().isOpen() && client.getState() == 0)
-                {
-                    Client newClient = clientList.get(clientList.size() - 1);
-                    client.setSocketChannel(newClient.getSocketChannel());
-                    clientList.remove(newClient);
-                    client.setState(1);
-                    for (Room room : client.getMyRoomList())
-                    {
-                        Map<Client, Integer> userStates = room.getUserStates();
-                        userStates.put(client,2);
-                    }
-                    crs.send(reqId, operation, 0, 0, ByteBuffer.allocate(0),client);
-
-                    logr.info(userId + " 재로그인 성공");
-                }
-
-                else if (!client.getSocketChannel().isOpen() && client.getState() == 2)
+                if (!client.getSocketChannel().isOpen())
                 {
                     Client newClient = clientList.get(clientList.size() - 1);
                     client.setSocketChannel(newClient.getSocketChannel());
@@ -899,6 +883,10 @@ public class ProcessService
 
     public void closeBroadcast(Client client)
     {
+        if(client.getState() == 0)
+        {
+            return;
+        }
 
         if(client.getMyCurRoom() != null)
         {
