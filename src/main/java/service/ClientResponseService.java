@@ -30,7 +30,7 @@ public class ClientResponseService
 
     public void send(int reqId, int operation, int broadcastNum, int result, ByteBuffer leftover, Client client)
     {
-        ByteBuffer writeBuffer = ByteBuffer.allocate(10000);
+        ByteBuffer writeBuffer = ByteBuffer.allocate(100000);
         if (reqId != -1)
         {
             writeBuffer.putInt(reqId);

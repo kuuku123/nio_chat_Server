@@ -25,7 +25,7 @@ public class ClientRequestService
 
     public void receive(Client client)
     {
-        ByteBuffer readBuffer = ByteBuffer.allocate(10000);
+        ByteBuffer readBuffer = ByteBuffer.allocate(100000);
         client.getSocketChannel().read(readBuffer, readBuffer, new CompletionHandler<Integer, ByteBuffer>()
         {
             @Override
@@ -40,11 +40,13 @@ public class ClientRequestService
                     {
                         logr.info("[요청 처리: " + client.getSocketChannel().getRemoteAddress() + ": " + Thread.currentThread().getName() + "]");
                         processService.processOp(attachment);
-                        ByteBuffer readBuffer = ByteBuffer.allocate(10000);
+                        ByteBuffer readBuffer = ByteBuffer.allocate(100000);
                         if (client.getSocketChannel() != null) client.getSocketChannel().read(readBuffer, readBuffer, this);
-                    } catch (IOException e)
+                    }
+                    catch (IOException e)
                     {
-                    } catch (BufferUnderflowException e)
+                    }
+                    catch (BufferUnderflowException e)
                     {
                         logr.info("receive 하는중에 BufferUnderflow 발생함");
                     }

@@ -11,6 +11,8 @@ import util.OperationEnum;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.AsynchronousFileChannel;
+import java.nio.channels.CompletionHandler;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -635,7 +637,6 @@ public class ProcessService
 
         int fileNum = myCurRoom.getFileNum();
 
-
         Path path = Paths.get("./temp_db/" + roomNum + "/" + fileNum + "/" + checkedFileName);
         try
         {
@@ -652,11 +653,17 @@ public class ProcessService
         infoBuf.putInt(fileNum);
         infoBuf.put(checkedFileName.getBytes(StandardCharsets.UTF_8));
         infoBuf.position(20);
-        infoBuf.putInt(100);
+        infoBuf.putInt(fileSize);
         infoBuf.flip();
 
         crs.send(reqId,13,0,0,infoBuf,sender);
-
+        try
+        {
+            Thread.sleep(100);
+        } catch (InterruptedException e)
+        {
+            e.printStackTrace();
+        }
     }
 
     void fileUploadProcess(int reqId, int operation,int roomNum, String userId, ByteBuffer attachment)
@@ -670,8 +677,8 @@ public class ProcessService
         int limit = attachment.limit();
         int fileSize = limit - position;
         boolean isItEnd = false;
-        byte[] fileReceive = new byte[fileSize];
-        attachment.get(fileReceive,0,fileSize);
+//        byte[] fileReceive = new byte[fileSize];
+//        attachment.get(fileReceive,0,fileSize);
 
         String fileName = "";
         int totalFileSize = -1;
@@ -685,7 +692,21 @@ public class ProcessService
                 Path path = file.getPath();
                 try
                 {
-                    Files.write(path,fileReceive, StandardOpenOption.CREATE,StandardOpenOption.APPEND);
+                    AsynchronousFileChannel fileChannel = AsynchronousFileChannel.open(path,StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+                    fileChannel.write(attachment, filePosition,null, new CompletionHandler<Integer,Long>()
+                    {
+                        @Override
+                        public void completed(Integer result, Long attachment)
+                        {
+                            logr.info("[ "+fileSize +" write operation complete]");
+                        }
+
+                        @Override
+                        public void failed(Throwable exc, Long attachment)
+                        {
+                        }
+                    });
+//                    Files.write(path,fileReceive, StandardOpenOption.CREATE,StandardOpenOption.APPEND);
                 } catch (IOException e)
                 {
                     e.printStackTrace();
