@@ -121,6 +121,7 @@ public class ProcessService
                 enrollFileProcess(reqId,operation,roomNum,userId,attachment);
                 return;
             case fileInfo:
+                crs.send(reqId,14,0,-1,ByteBuffer.allocate(0),ServerService.getSender(userId));
                 return;
             case exitRoom:
                 exitRoomProcess(reqId,operation,roomNum,userId,attachment);
