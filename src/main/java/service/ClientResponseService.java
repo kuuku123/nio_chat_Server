@@ -1,35 +1,35 @@
 package service;
 
+import adminserver.ServerService;
 import domain.Client;
 import util.MyLog;
+import util.SendPackage;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.CompletionHandler;
+import java.nio.channels.SelectionKey;
 import java.util.logging.Logger;
+
+import static service.ProcessService.*;
 
 public class ClientResponseService
 {
     private final Logger logr = MyLog.getLogr();
-    private final Object for_sendTextProcess;
-    private final Object for_enterRoomProcess;
-    private final Object for_inviteRoomProcess;
-    private final Object for_quitRoomProcess;
-    private final Object for_uploadFileProcess;
-    private final Object for_deleteFileProcess;
 
-    public ClientResponseService(Object for_sendTextProcess, Object for_enterRoomProcess, Object for_inviteRoomProcess, Object for_quitRoomProcess, Object for_uploadFileProcess, Object for_deleteFileProcess)
+
+    public ClientResponseService()
     {
-        this.for_sendTextProcess = for_sendTextProcess;
-        this.for_enterRoomProcess = for_enterRoomProcess;
-        this.for_inviteRoomProcess = for_inviteRoomProcess;
-        this.for_quitRoomProcess = for_quitRoomProcess;
-        this.for_uploadFileProcess = for_uploadFileProcess;
-        this.for_deleteFileProcess = for_deleteFileProcess;
     }
 
-    public void send(int reqId, int operation, int broadcastNum, int result, ByteBuffer leftover, Client client)
+    public void send(SelectionKey selectionKey)
     {
+        SendPackage sendPackage = (SendPackage) selectionKey.attachment();
+        Client client = sendPackage.getClient();
+        int reqId = sendPackage.getReqId();
+        int operation = sendPackage.getOperation();
+        int result = sendPackage.getResult();
+        ByteBuffer leftover = sendPackage.getLeftover();
+        int broadcastNum = sendPackage.getBroadcastNum();
         ByteBuffer writeBuffer = ByteBuffer.allocate(100000);
         if (reqId != -1)
         {
@@ -44,62 +44,40 @@ public class ClientResponseService
             writeBuffer.put(leftover);
         }
         writeBuffer.flip();
-        client.getSocketChannel().write(writeBuffer, null, new CompletionHandler<Integer, Object>()
+        try
         {
-            @Override
-            public void completed(Integer result, Object attachment)
+            client.getSocketChannel().write(writeBuffer);
+            selectionKey.interestOps(SelectionKey.OP_READ);
+            ServerService.selector.wakeup();
+        } catch (IOException e)
+        {
+            if (reqId == -1 && broadcastNum == 2)
             {
-                synchronized (for_inviteRoomProcess)
-                {
-                    for_inviteRoomProcess.notify();
-                }
-                synchronized (for_enterRoomProcess)
-                {
-                    for_enterRoomProcess.notify();
-                }
-                synchronized (for_sendTextProcess)
-                {
-                    for_sendTextProcess.notify();
-                }
-                synchronized (for_quitRoomProcess)
-                {
-                    for_quitRoomProcess.notify();
-                }
+                leftover.flip();
+                client.getNotYetReadBuffers().add(leftover);
             }
-
-            @Override
-            public void failed(Throwable exc, Object attachment)
-            {
-
-                if (reqId == -1 && broadcastNum == 2)
-                {
-                    leftover.flip();
-                    client.getNotYetReadBuffers().add(leftover);
-                }
-                synchronized (for_inviteRoomProcess)
-                {
-                    for_inviteRoomProcess.notify();
-                }
-                synchronized (for_enterRoomProcess)
-                {
-                    for_enterRoomProcess.notify();
-                }
-                synchronized (for_sendTextProcess)
-                {
-                    for_sendTextProcess.notify();
-                }
-                synchronized (for_quitRoomProcess)
-                {
-                    for_quitRoomProcess.notify();
-                }
-                try
-                {
-                    logr.severe("[send fail" + client.getSocketChannel().getRemoteAddress() + " : " + Thread.currentThread().getName() + "]");
-                    client.getSocketChannel().close();
-                } catch (IOException e)
-                {
-                }
-            }
-        });
+            logr.info("send failed, buffer saved in server for later use");
+            return;
+        }
+        synchronized (for_inviteRoomProcess)
+        {
+            for_inviteRoomProcess.notify();
+        }
+        synchronized (for_enterRoomProcess)
+        {
+            for_enterRoomProcess.notify();
+        }
+        synchronized (for_sendTextProcess)
+        {
+            for_sendTextProcess.notify();
+        }
+        synchronized (for_quitRoomProcess)
+        {
+            for_quitRoomProcess.notify();
+        }
+        synchronized (for_uploadFileProcess)
+        {
+            for_uploadFileProcess.notify();
+        }
     }
 }

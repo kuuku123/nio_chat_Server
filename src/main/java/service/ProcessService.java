@@ -7,12 +7,14 @@ import domain.Room;
 import domain.Text;
 import util.MyLog;
 import util.OperationEnum;
+import util.SendPackage;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousFileChannel;
 import java.nio.channels.CompletionHandler;
+import java.nio.channels.SelectionKey;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -25,6 +27,7 @@ import java.util.Map;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
+import static adminserver.ServerService.selector;
 import static util.ElseProcess.getTime;
 import static util.ElseProcess.removeZero;
 
@@ -32,16 +35,16 @@ public class ProcessService
 {
     private final ClientResponseService crs;
     private final Logger logr = MyLog.getLogr();
-    private Object for_sendTextProcess = new Object();
-    private Object for_enterRoomProcess = new Object();
-    private Object for_inviteRoomProcess = new Object();
-    private Object for_quitRoomProcess = new Object();
-    private Object for_uploadFileProcess = new Object();
-    private Object for_deleteFileProcess = new Object();
+    public final static Object for_sendTextProcess = new Object();
+    public final static Object for_enterRoomProcess = new Object();
+    public final static Object for_inviteRoomProcess = new Object();
+    public final static Object for_quitRoomProcess = new Object();
+    public final static Object for_uploadFileProcess = new Object();
+    public final static Object for_deleteFileProcess = new Object();
 
     public ProcessService()
     {
-        this.crs = new ClientResponseService(for_sendTextProcess,for_enterRoomProcess,for_inviteRoomProcess,for_quitRoomProcess,for_uploadFileProcess,for_deleteFileProcess);
+        this.crs = new ClientResponseService();
     }
 
     int getReqId(ByteBuffer byteBuffer)
@@ -123,7 +126,6 @@ public class ProcessService
                 enrollFileProcess(reqId,operation,roomNum,userId,attachment);
                 return;
             case fileInfo:
-                crs.send(reqId,14,0,-1,ByteBuffer.allocate(0),ServerService.getSender(userId));
                 return;
             case exitRoom:
                 exitRoomProcess(reqId,operation,roomNum,userId,attachment);
@@ -160,7 +162,12 @@ public class ProcessService
                             {
                                 try
                                 {
-                                    crs.send(-1,0,2,0,notYetReadBuffer,client);
+                                    SendPackage sendPackage = new SendPackage(client, -1, 0, 2, 0, notYetReadBuffer);
+                                    SelectionKey selectionKey = client.getSocketChannel().keyFor(selector);
+                                    selectionKey.attach(sendPackage);
+                                    selectionKey.interestOps(SelectionKey.OP_WRITE);
+                                    selector.wakeup();
+                                    crs.send(selectionKey);
                                     for_sendTextProcess.wait(100);
                                     for_sendTextProcess.wait(100);
                                 } catch (InterruptedException e)
@@ -172,8 +179,12 @@ public class ProcessService
 
                         client.getNotYetReadBuffers().clear();
                     }
-
-                    crs.send(reqId, operation, 0, 0, ByteBuffer.allocate(0),client);
+                    SendPackage sendPackage = new SendPackage(client, reqId, operation, 0, 0, ByteBuffer.allocate(0));
+                    SelectionKey selectionKey = client.getSocketChannel().keyFor(selector);
+                    selectionKey.attach(sendPackage);
+                    selectionKey.interestOps(SelectionKey.OP_WRITE);
+                    selector.wakeup();
+                    crs.send(selectionKey);
 
                     logr.info("[연결 개수: " + clientList.size() + "]");
                     logr.info(userId + " 재로그인 성공");
@@ -186,11 +197,16 @@ public class ProcessService
         client1.setUserId(userId);
         client1.setState(1);
         logr.info(userId + " logged in");
-        crs.send(reqId, operation, 0, 0, addressesBuf,client1);
+        SendPackage sendPackage = new SendPackage(client1, reqId, operation, 0, 0, addressesBuf);
+        SelectionKey selectionKey = client1.getSocketChannel().keyFor(selector);
+        selectionKey.attach(sendPackage);
+        selectionKey.interestOps(SelectionKey.OP_WRITE);
+        selector.wakeup();
+        crs.send(selectionKey);
     }
 
 
-    public void logoutProcess(int reqid, int operation, String userId, ByteBuffer data)
+    public void logoutProcess(int reqId, int operation, String userId, ByteBuffer data)
     {
         List<Client> clientList = ServerService.clientList;
         for (Client client : clientList)
@@ -200,7 +216,12 @@ public class ProcessService
                 try
                 {
                     logr.info(userId + " logged out , connection info deleted");
-                    crs.send(reqid, operation, 0, 0, ByteBuffer.allocate(0),client);
+                    SendPackage sendPackage = new SendPackage(client, reqId, operation, 0, 0, ByteBuffer.allocate(0));
+                    SelectionKey selectionKey = client.getSocketChannel().keyFor(selector);
+                    selectionKey.attach(sendPackage);
+                    selectionKey.interestOps(SelectionKey.OP_WRITE);
+                    selector.wakeup();
+                    crs.send(selectionKey);
                     Map<Client, Integer> userStates = client.getMyCurRoom().getUserStates();
                     userStates.put(client,0);
                     client.setMyCurRoom(null);
@@ -226,7 +247,12 @@ public class ProcessService
                 currentSender = client;
                 if (client.getMyRoomList().size() == 0 || client.getMyCurRoom() == null)
                 {
-                    crs.send(reqId, operation, 0, 3, ByteBuffer.allocate(0),client);
+                    SendPackage sendPackage = new SendPackage(client, reqId, operation, 0, -1, ByteBuffer.allocate(0));
+                    SelectionKey selectionKey = client.getSocketChannel().keyFor(selector);
+                    selectionKey.attach(sendPackage);
+                    selectionKey.interestOps(SelectionKey.OP_WRITE);
+                    selector.wakeup();
+                    crs.send(selectionKey);
                     return;
                 }
             }
@@ -250,7 +276,13 @@ public class ProcessService
                 {
                     try
                     {
-                        crs.send(reqId, operation, 0, 0, ByteBuffer.allocate(0),client);
+                        SendPackage sendPackage = new SendPackage(client, reqId, operation, 0, 0, ByteBuffer.allocate(0));
+                        SelectionKey selectionKey = client.getSocketChannel().keyFor(selector);
+                        selectionKey.attach(sendPackage);
+                        selectionKey.interestOps(SelectionKey.OP_WRITE);
+                        selector.wakeup();
+                        crs.send(selectionKey);
+
                         for_sendTextProcess.wait(100);
                     } catch (InterruptedException e)
                     {
@@ -274,7 +306,22 @@ public class ProcessService
             {
                 try
                 {
-                    crs.send(-1, operation, 2, 0, chatData,client);
+                    SendPackage sendPackage = new SendPackage(client, -1, operation, 2, 0, chatData);
+
+                    if(client.getSocketChannel().isOpen())
+                    {
+                        SelectionKey selectionKey = client.getSocketChannel().keyFor(selector);
+                        selectionKey.attach(sendPackage);
+                        selectionKey.interestOps(SelectionKey.OP_WRITE);
+                        selector.wakeup();
+                        crs.send(selectionKey);
+                    }
+                    else
+                    {
+                        client.getNotYetReadBuffers().add(chatData);
+                    }
+
+
                     for_sendTextProcess.wait(100);
                 } catch (InterruptedException e)
                 {
@@ -316,7 +363,13 @@ public class ProcessService
         forRoom.putInt(roomNum);
         forRoom.flip();
         logr.info("[roomName : " + roomName + " roomNum : " + roomNum + " created by " + userId + " ]");
-        crs.send(reqId, operation, 0, 0, forRoom,sender);
+        SendPackage sendPackage = new SendPackage(sender, reqId, operation, 0, 0, forRoom);
+        SelectionKey selectionKey = sender.getSocketChannel().keyFor(selector);
+        selectionKey.attach(sendPackage);
+        selectionKey.interestOps(SelectionKey.OP_WRITE);
+        selector.wakeup();
+        crs.send(selectionKey);
+
     }
 
     public void inviteRoomProcess(int reqId, int operation, int roomNum, String userId, ByteBuffer data)
@@ -403,7 +456,13 @@ public class ProcessService
             {
                 try
                 {
-                    crs.send(-1, operation, 0, 0, infoBuf,roomUser);
+                    SendPackage sendPackage = new SendPackage(roomUser, -1, operation, 0, 0, infoBuf);
+                    SelectionKey selectionKey = roomUser.getSocketChannel().keyFor(selector);
+                    selectionKey.attach(sendPackage);
+                    selectionKey.interestOps(SelectionKey.OP_WRITE);
+                    selector.wakeup();
+                    crs.send(selectionKey);
+
                     for_inviteRoomProcess.wait(100);
                 } catch (InterruptedException e)
                 {
@@ -411,8 +470,15 @@ public class ProcessService
                 }
             }
         }
-        if (success) crs.send(reqId, operation, 0, 0, ByteBuffer.allocate(0),invitee);
-        else crs.send(reqId, operation, 0, 1, ByteBuffer.allocate(0),invitee);
+        if (success)
+        {
+            SendPackage sendPackage = new SendPackage(invitee, reqId, operation, 0, 0, ByteBuffer.allocate(0));
+            SelectionKey selectionKey = invitee.getSocketChannel().keyFor(selector);
+            selectionKey.attach(sendPackage);
+            selectionKey.interestOps(SelectionKey.OP_WRITE);
+            selector.wakeup();
+            crs.send(selectionKey);
+        }
     }
 
 
@@ -439,7 +505,13 @@ public class ProcessService
             byteBuffer.putInt(notRead);
         }
         byteBuffer.flip();
-        crs.send(reqId, operation, 0, 0, byteBuffer,sender);
+        SendPackage sendPackage = new SendPackage(sender, reqId, operation, 0, 0, byteBuffer);
+        SelectionKey selectionKey = sender.getSocketChannel().keyFor(selector);
+        selectionKey.attach(sendPackage);
+        selectionKey.interestOps(SelectionKey.OP_WRITE);
+        selector.wakeup();
+        crs.send(selectionKey);
+
     }
 
 
@@ -499,7 +571,13 @@ public class ProcessService
                     try
                     {
                         if (client.getMyCurRoom() == null) continue;
-                        crs.send(-1, operation, 5, 0, enterRoomBroadcast,client);
+                        SendPackage sendPackage = new SendPackage(client, -1, operation, 5, 0, enterRoomBroadcast);
+                        SelectionKey selectionKey = client.getSocketChannel().keyFor(selector);
+                        selectionKey.attach(sendPackage);
+                        selectionKey.interestOps(SelectionKey.OP_WRITE);
+                        selector.wakeup();
+                        crs.send(selectionKey);
+
                         for_enterRoomProcess.wait(100);
                     } catch (InterruptedException e)
                     {
@@ -513,7 +591,13 @@ public class ProcessService
         {
             try
             {
-                crs.send(reqId, operation, 0, 0, ByteBuffer.allocate(0),sender);
+                SendPackage sendPackage = new SendPackage(sender, reqId, operation, 0, 0, ByteBuffer.allocate(0));
+                SelectionKey selectionKey = sender.getSocketChannel().keyFor(selector);
+                selectionKey.attach(sendPackage);
+                selectionKey.interestOps(SelectionKey.OP_WRITE);
+                selector.wakeup();
+                crs.send(selectionKey);
+
                 for_enterRoomProcess.wait(100);
             } catch (InterruptedException e)
             {
@@ -543,7 +627,13 @@ public class ProcessService
                 {
                     try
                     {
-                        crs.send(reqId,operation,0,0,ByteBuffer.allocate(0),sender);
+                        SendPackage sendPackage = new SendPackage(sender, reqId, operation, 0, 0, ByteBuffer.allocate(0));
+                        SelectionKey selectionKey = sender.getSocketChannel().keyFor(selector);
+                        selectionKey.attach(sendPackage);
+                        selectionKey.interestOps(SelectionKey.OP_WRITE);
+                        selector.wakeup();
+                        crs.send(selectionKey);
+
                         for_quitRoomProcess.wait(100);
                     } catch (InterruptedException e)
                     {
@@ -569,7 +659,13 @@ public class ProcessService
             {
                 try
                 {
-                    crs.send(-1, operation, 1, 0, allocate,client);
+                    SendPackage sendPackage = new SendPackage(client, -1, operation, 1, 0, allocate);
+                    SelectionKey selectionKey = client.getSocketChannel().keyFor(selector);
+                    selectionKey.attach(sendPackage);
+                    selectionKey.interestOps(SelectionKey.OP_WRITE);
+                    selector.wakeup();
+                    crs.send(selectionKey);
+
                     for_quitRoomProcess.wait(100);
                 } catch (InterruptedException e)
                 {
@@ -593,7 +689,13 @@ public class ProcessService
             {
                 Map<Client, Integer> userStates = room.getUserStates();
                 userStates.put(sender,2);
-                crs.send(reqId,operation,0,0,ByteBuffer.allocate(0),sender);
+                SendPackage sendPackage = new SendPackage(sender, reqId, operation, 0, 0, ByteBuffer.allocate(0));
+                SelectionKey selectionKey = sender.getSocketChannel().keyFor(selector);
+                selectionKey.attach(sendPackage);
+                selectionKey.interestOps(SelectionKey.OP_WRITE);
+                selector.wakeup();
+                crs.send(selectionKey);
+
                 break;
             }
         }
@@ -617,7 +719,13 @@ public class ProcessService
             infoBuf.putInt(value);
         }
         infoBuf.flip();
-        crs.send(reqId,operation,0,0,infoBuf,sender);
+        SendPackage sendPackage = new SendPackage(sender, reqId, operation, 0, 0, infoBuf);
+        SelectionKey selectionKey = sender.getSocketChannel().keyFor(selector);
+        selectionKey.attach(sendPackage);
+        selectionKey.interestOps(SelectionKey.OP_WRITE);
+        selector.wakeup();
+        crs.send(selectionKey);
+
 
     }
 
@@ -656,7 +764,14 @@ public class ProcessService
         infoBuf.putInt(fileSize);
         infoBuf.flip();
 
-        crs.send(reqId,13,0,0,infoBuf,sender);
+        SendPackage sendPackage = new SendPackage(sender, reqId, operation, 0, 0, infoBuf);
+        SelectionKey selectionKey = sender.getSocketChannel().keyFor(selector);
+        selectionKey.attach(sendPackage);
+        selectionKey.interestOps(SelectionKey.OP_WRITE);
+        selector.wakeup();
+        crs.send(selectionKey);
+
+
         try
         {
             Thread.sleep(100);
@@ -714,7 +829,13 @@ public class ProcessService
                 break;
             }
         }
-        crs.send(reqId,operation,0,0,ByteBuffer.allocate(0),sender);
+        SendPackage sendPackage = new SendPackage(sender, reqId, operation, 0, 0, ByteBuffer.allocate(0));
+        SelectionKey selectionKey = sender.getSocketChannel().keyFor(selector);
+        selectionKey.attach(sendPackage);
+        selectionKey.interestOps(SelectionKey.OP_WRITE);
+        selector.wakeup();
+        crs.send(selectionKey);
+
 
         if(isItEnd)
         {
@@ -736,7 +857,12 @@ public class ProcessService
                 {
                     try
                     {
-                        crs.send(-1,0,3,0,infoBuf,client);
+                        SendPackage sendPackage2 = new SendPackage(client, -1, operation, 3, 0, infoBuf);
+                        SelectionKey selectionKey2 = client.getSocketChannel().keyFor(selector);
+                        selectionKey2.attach(sendPackage2);
+                        selectionKey2.interestOps(SelectionKey.OP_WRITE);
+                        selector.wakeup();
+                        crs.send(selectionKey2);
                         for_uploadFileProcess.wait(100);
                     } catch (InterruptedException e)
                     {
@@ -798,7 +924,13 @@ public class ProcessService
                 {
                     try
                     {
-                        crs.send(reqId,5,0, 0, fileBuf,sender);
+                        SendPackage sendPackage = new SendPackage(sender, reqId, operation, 0, 0, fileBuf);
+                        SelectionKey selectionKey = sender.getSocketChannel().keyFor(selector);
+                        selectionKey.attach(sendPackage);
+                        selectionKey.interestOps(SelectionKey.OP_WRITE);
+                        selector.wakeup();
+                        crs.send(selectionKey);
+
                         for_uploadFileProcess.wait(500);
                     } catch (InterruptedException e)
                     {
@@ -839,7 +971,13 @@ public class ProcessService
         }
 
         buffer.flip();
-        crs.send(reqId,operation,0,0,buffer,sender);
+        SendPackage sendPackage = new SendPackage(sender, reqId, operation, 0, 0, buffer);
+        SelectionKey selectionKey = sender.getSocketChannel().keyFor(selector);
+        selectionKey.attach(sendPackage);
+        selectionKey.interestOps(SelectionKey.OP_WRITE);
+        selector.wakeup();
+        crs.send(selectionKey);
+
     }
 
     void fileDeleteProcess(int reqId, int operation,int roomNum, String userId, ByteBuffer attachment)
@@ -874,7 +1012,13 @@ public class ProcessService
                 break;
             }
         }
-        crs.send(reqId,operation,0,0,ByteBuffer.allocate(0),sender);
+        SendPackage sendPackage = new SendPackage(sender, reqId, operation, 0, 0, ByteBuffer.allocate(0));
+        SelectionKey selectionKey = sender.getSocketChannel().keyFor(selector);
+        selectionKey.attach(sendPackage);
+        selectionKey.interestOps(SelectionKey.OP_WRITE);
+        selector.wakeup();
+        crs.send(selectionKey);
+
 
         for (Client client : myCurRoom.getUserList())
         {
@@ -893,7 +1037,13 @@ public class ProcessService
             {
                 try
                 {
-                    crs.send(-1,0,4,0,infoBuf,client);
+                    SendPackage sendPackage2 = new SendPackage(client, -1, operation, 4, 0, infoBuf);
+                    SelectionKey selectionKey2 = client.getSocketChannel().keyFor(selector);
+                    selectionKey2.attach(sendPackage2);
+                    selectionKey2.interestOps(SelectionKey.OP_WRITE);
+                    selector.wakeup();
+                    crs.send(selectionKey2);
+
                     for_deleteFileProcess.wait(100);
                 } catch (InterruptedException e)
                 {
@@ -903,8 +1053,10 @@ public class ProcessService
         }
     }
 
-    public void closeBroadcast(Client client)
+    public void closeBroadcast(SelectionKey selectionKey)
     {
+        SendPackage sendPackage2 = (SendPackage) selectionKey.attachment();
+        Client client = sendPackage2.getClient();
         if(client.getState() == 0)
         {
             return;
@@ -923,7 +1075,13 @@ public class ProcessService
                 allocate.put(getTime().getBytes(StandardCharsets.UTF_8));
                 allocate.position(32);
                 allocate.flip();
-                crs.send(-1,0,6,0,allocate,client1);
+
+                SendPackage sendPackage = new SendPackage(client1, -1, 0, 6, 0, allocate);
+                selectionKey.attach(sendPackage);
+                selectionKey.interestOps(SelectionKey.OP_WRITE);
+                selector.wakeup();
+                crs.send(selectionKey);
+
             }
         }
         client.setState(2);

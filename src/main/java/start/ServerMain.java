@@ -2,6 +2,7 @@ package start;
 
 import adminserver.ServerService;
 import service.ClientRequestService;
+import service.ClientResponseService;
 import service.ProcessService;
 
 public class ServerMain
@@ -10,7 +11,8 @@ public class ServerMain
     {
         ProcessService processService = new ProcessService();
         ClientRequestService clientRequestService = new ClientRequestService(processService);
-        ServerService serverExample = new ServerService(clientRequestService);
+        ClientResponseService clientResponseService = new ClientResponseService();
+        ServerService serverExample = new ServerService(clientRequestService,clientResponseService);
         serverExample.startServer();
     }
 }
