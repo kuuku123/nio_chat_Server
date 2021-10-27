@@ -83,13 +83,8 @@ public class ServerService
                             try
                             {
                                 int byteCount = socketChannel.read(readBuffer);
-                                int position = readBuffer.position();
-                                System.out.println(position+ " pos ");
                                 executorService.submit(() ->
-                                        {
-                                            System.out.println(Thread.currentThread().getName() + " " + selectionKey);
-                                            crs.receive(selectionKey, readBuffer, byteCount);
-                                        }
+                                        crs.receive(selectionKey, readBuffer, byteCount)
                                 );
                             }
                             catch(IOException e)
@@ -100,7 +95,8 @@ public class ServerService
                         }
                         else if(selectionKey.isWritable())
                         {
-                            clientResponseService.send(selectionKey);
+                            executorService.submit( () ->
+                                    clientResponseService.send(selectionKey));
                         }
                         iterator.remove();
                     }
