@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.*;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.logging.Logger;
 
@@ -26,6 +27,8 @@ public class ServerService
     public static int global_textId = -1;
     private final ClientRequestService crs;
     private final ClientResponseService clientResponseService;
+    ExecutorService executorService = Executors.newFixedThreadPool(4);
+    public static Object readLock = new Object();
 
     public ServerService(ClientRequestService crs, ClientResponseService clientResponseService)
     {
@@ -71,7 +74,16 @@ public class ServerService
                         }
                         else if (selectionKey.isReadable())
                         {
-                            crs.receive(selectionKey);
+                            synchronized (readLock)
+                            {
+                                executorService.submit(() ->
+                                        {
+                                            System.out.println(Thread.currentThread().getName() + " " + selectionKey);
+                                            crs.receive(selectionKey);
+                                        }
+                                );
+                                readLock.wait();
+                            }
                         }
                         else if(selectionKey.isWritable())
                         {

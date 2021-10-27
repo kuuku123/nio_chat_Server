@@ -1,5 +1,6 @@
 package service;
 
+import adminserver.ServerService;
 import domain.Client;
 import util.MyLog;
 import util.SendPackage;
@@ -35,6 +36,7 @@ public class ClientRequestService
             ByteBuffer readBuffer = ByteBuffer.allocate(100000);
 
             int byteCount = client.getSocketChannel().read(readBuffer);
+            System.out.println(byteCount + " bytecount ");
             if(byteCount == -1)
             {
                 processService.closeBroadcast(selectionKey);
@@ -43,10 +45,19 @@ public class ClientRequestService
 
             logr.info("[요청 처리: " + client.getSocketChannel().getRemoteAddress() + ": " + Thread.currentThread().getName() + "]");
             processService.processOp(readBuffer);
+            readBuffer.clear();
+            synchronized (ServerService.readLock)
+            {
+                ServerService.readLock.notify();
+            }
         }
         catch(Exception e)
         {
             processService.closeBroadcast(selectionKey);
+            synchronized (ServerService.readLock)
+            {
+                ServerService.readLock.notify();
+            }
         }
     }
 }
