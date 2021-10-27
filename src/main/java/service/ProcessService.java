@@ -222,8 +222,11 @@ public class ProcessService
                     selectionKey.interestOps(SelectionKey.OP_WRITE);
                     selector.wakeup();
                     crs.send(selectionKey);
-                    Map<Client, Integer> userStates = client.getMyCurRoom().getUserStates();
-                    userStates.put(client,0);
+                    if(client.getMyCurRoom() != null)
+                    {
+                        Map<Client, Integer> userStates = client.getMyCurRoom().getUserStates();
+                        userStates.put(client,0);
+                    }
                     client.setMyCurRoom(null);
                     client.setState(0);
                     client.getSocketChannel().close();
