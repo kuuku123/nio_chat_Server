@@ -166,7 +166,6 @@ public class ProcessService
                                     SelectionKey selectionKey = client.getSocketChannel().keyFor(selector);
                                     selectionKey.attach(sendPackage);
                                     selectionKey.interestOps(SelectionKey.OP_WRITE);
-                                    selector.wakeup();
                                     crs.send(selectionKey);
                                     for_sendTextProcess.wait(100);
                                     for_sendTextProcess.wait(100);
@@ -183,7 +182,6 @@ public class ProcessService
                     SelectionKey selectionKey = client.getSocketChannel().keyFor(selector);
                     selectionKey.attach(sendPackage);
                     selectionKey.interestOps(SelectionKey.OP_WRITE);
-                    selector.wakeup();
                     crs.send(selectionKey);
 
                     logr.info("[연결 개수: " + clientList.size() + "]");
@@ -201,7 +199,6 @@ public class ProcessService
         SelectionKey selectionKey = client1.getSocketChannel().keyFor(selector);
         selectionKey.attach(sendPackage);
         selectionKey.interestOps(SelectionKey.OP_WRITE);
-        selector.wakeup();
         crs.send(selectionKey);
     }
 
@@ -220,7 +217,6 @@ public class ProcessService
                     SelectionKey selectionKey = client.getSocketChannel().keyFor(selector);
                     selectionKey.attach(sendPackage);
                     selectionKey.interestOps(SelectionKey.OP_WRITE);
-                    selector.wakeup();
                     crs.send(selectionKey);
                     if(client.getMyCurRoom() != null)
                     {
@@ -254,7 +250,6 @@ public class ProcessService
                     SelectionKey selectionKey = client.getSocketChannel().keyFor(selector);
                     selectionKey.attach(sendPackage);
                     selectionKey.interestOps(SelectionKey.OP_WRITE);
-                    selector.wakeup();
                     crs.send(selectionKey);
                     return;
                 }
@@ -283,7 +278,6 @@ public class ProcessService
                         SelectionKey selectionKey = client.getSocketChannel().keyFor(selector);
                         selectionKey.attach(sendPackage);
                         selectionKey.interestOps(SelectionKey.OP_WRITE);
-                        selector.wakeup();
                         crs.send(selectionKey);
 
                         for_sendTextProcess.wait(100);
@@ -316,7 +310,6 @@ public class ProcessService
                         SelectionKey selectionKey = client.getSocketChannel().keyFor(selector);
                         selectionKey.attach(sendPackage);
                         selectionKey.interestOps(SelectionKey.OP_WRITE);
-                        selector.wakeup();
                         crs.send(selectionKey);
                     }
                     else
@@ -370,7 +363,6 @@ public class ProcessService
         SelectionKey selectionKey = sender.getSocketChannel().keyFor(selector);
         selectionKey.attach(sendPackage);
         selectionKey.interestOps(SelectionKey.OP_WRITE);
-        selector.wakeup();
         crs.send(selectionKey);
 
     }
@@ -463,7 +455,6 @@ public class ProcessService
                     SelectionKey selectionKey = roomUser.getSocketChannel().keyFor(selector);
                     selectionKey.attach(sendPackage);
                     selectionKey.interestOps(SelectionKey.OP_WRITE);
-                    selector.wakeup();
                     crs.send(selectionKey);
 
                     for_inviteRoomProcess.wait(100);
@@ -479,7 +470,6 @@ public class ProcessService
             SelectionKey selectionKey = invitee.getSocketChannel().keyFor(selector);
             selectionKey.attach(sendPackage);
             selectionKey.interestOps(SelectionKey.OP_WRITE);
-            selector.wakeup();
             crs.send(selectionKey);
         }
     }
@@ -512,7 +502,6 @@ public class ProcessService
         SelectionKey selectionKey = sender.getSocketChannel().keyFor(selector);
         selectionKey.attach(sendPackage);
         selectionKey.interestOps(SelectionKey.OP_WRITE);
-        selector.wakeup();
         crs.send(selectionKey);
 
     }
@@ -578,7 +567,6 @@ public class ProcessService
                         SelectionKey selectionKey = client.getSocketChannel().keyFor(selector);
                         selectionKey.attach(sendPackage);
                         selectionKey.interestOps(SelectionKey.OP_WRITE);
-                        selector.wakeup();
                         crs.send(selectionKey);
 
                         for_enterRoomProcess.wait(100);
@@ -598,7 +586,6 @@ public class ProcessService
                 SelectionKey selectionKey = sender.getSocketChannel().keyFor(selector);
                 selectionKey.attach(sendPackage);
                 selectionKey.interestOps(SelectionKey.OP_WRITE);
-                selector.wakeup();
                 crs.send(selectionKey);
 
                 for_enterRoomProcess.wait(100);
@@ -634,7 +621,6 @@ public class ProcessService
                         SelectionKey selectionKey = sender.getSocketChannel().keyFor(selector);
                         selectionKey.attach(sendPackage);
                         selectionKey.interestOps(SelectionKey.OP_WRITE);
-                        selector.wakeup();
                         crs.send(selectionKey);
 
                         for_quitRoomProcess.wait(100);
@@ -666,7 +652,6 @@ public class ProcessService
                     SelectionKey selectionKey = client.getSocketChannel().keyFor(selector);
                     selectionKey.attach(sendPackage);
                     selectionKey.interestOps(SelectionKey.OP_WRITE);
-                    selector.wakeup();
                     crs.send(selectionKey);
 
                     for_quitRoomProcess.wait(100);
@@ -696,7 +681,6 @@ public class ProcessService
                 SelectionKey selectionKey = sender.getSocketChannel().keyFor(selector);
                 selectionKey.attach(sendPackage);
                 selectionKey.interestOps(SelectionKey.OP_WRITE);
-                selector.wakeup();
                 crs.send(selectionKey);
 
                 break;
@@ -726,7 +710,6 @@ public class ProcessService
         SelectionKey selectionKey = sender.getSocketChannel().keyFor(selector);
         selectionKey.attach(sendPackage);
         selectionKey.interestOps(SelectionKey.OP_WRITE);
-        selector.wakeup();
         crs.send(selectionKey);
 
 
@@ -771,7 +754,6 @@ public class ProcessService
         SelectionKey selectionKey = sender.getSocketChannel().keyFor(selector);
         selectionKey.attach(sendPackage);
         selectionKey.interestOps(SelectionKey.OP_WRITE);
-        selector.wakeup();
         crs.send(selectionKey);
 
 
@@ -836,7 +818,6 @@ public class ProcessService
         SelectionKey selectionKey = sender.getSocketChannel().keyFor(selector);
         selectionKey.attach(sendPackage);
         selectionKey.interestOps(SelectionKey.OP_WRITE);
-        selector.wakeup();
         crs.send(selectionKey);
 
 
@@ -864,7 +845,6 @@ public class ProcessService
                         SelectionKey selectionKey2 = client.getSocketChannel().keyFor(selector);
                         selectionKey2.attach(sendPackage2);
                         selectionKey2.interestOps(SelectionKey.OP_WRITE);
-                        selector.wakeup();
                         crs.send(selectionKey2);
                         for_uploadFileProcess.wait(100);
                     } catch (InterruptedException e)
@@ -931,7 +911,6 @@ public class ProcessService
                         SelectionKey selectionKey = sender.getSocketChannel().keyFor(selector);
                         selectionKey.attach(sendPackage);
                         selectionKey.interestOps(SelectionKey.OP_WRITE);
-                        selector.wakeup();
                         crs.send(selectionKey);
 
                         for_uploadFileProcess.wait(500);
@@ -978,7 +957,6 @@ public class ProcessService
         SelectionKey selectionKey = sender.getSocketChannel().keyFor(selector);
         selectionKey.attach(sendPackage);
         selectionKey.interestOps(SelectionKey.OP_WRITE);
-        selector.wakeup();
         crs.send(selectionKey);
 
     }
@@ -1019,7 +997,6 @@ public class ProcessService
         SelectionKey selectionKey = sender.getSocketChannel().keyFor(selector);
         selectionKey.attach(sendPackage);
         selectionKey.interestOps(SelectionKey.OP_WRITE);
-        selector.wakeup();
         crs.send(selectionKey);
 
 
@@ -1044,7 +1021,6 @@ public class ProcessService
                     SelectionKey selectionKey2 = client.getSocketChannel().keyFor(selector);
                     selectionKey2.attach(sendPackage2);
                     selectionKey2.interestOps(SelectionKey.OP_WRITE);
-                    selector.wakeup();
                     crs.send(selectionKey2);
 
                     for_deleteFileProcess.wait(100);
@@ -1082,7 +1058,6 @@ public class ProcessService
                 SendPackage sendPackage = new SendPackage(client1, -1, 0, 6, 0, allocate);
                 selectionKey.attach(sendPackage);
                 selectionKey.interestOps(SelectionKey.OP_WRITE);
-                selector.wakeup();
                 crs.send(selectionKey);
 
             }

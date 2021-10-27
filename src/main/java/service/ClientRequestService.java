@@ -27,29 +27,18 @@ public class ClientRequestService
         this.processService = processService;
     }
 
-    public void receive(SelectionKey selectionKey)
+    public void receive(SelectionKey selectionKey,ByteBuffer readBuffer, int byteCount)
     {
         SendPackage sendPackage = (SendPackage) selectionKey.attachment();
         Client client = sendPackage.getClient();
         try
         {
-            ByteBuffer readBuffer = ByteBuffer.allocate(100000);
-
-            int byteCount = client.getSocketChannel().read(readBuffer);
             System.out.println(byteCount + " bytecount ");
-            if(byteCount == -1)
-            {
-                processService.closeBroadcast(selectionKey);
-                return;
-            }
+
 
             logr.info("[요청 처리: " + client.getSocketChannel().getRemoteAddress() + ": " + Thread.currentThread().getName() + "]");
             processService.processOp(readBuffer);
             readBuffer.clear();
-            synchronized (ServerService.readLock)
-            {
-                ServerService.readLock.notify();
-            }
         }
         catch(Exception e)
         {

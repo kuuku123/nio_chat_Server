@@ -47,6 +47,7 @@ public class ClientResponseService
         try
         {
             client.getSocketChannel().write(writeBuffer);
+            writeBuffer.clear();
             selectionKey.interestOps(SelectionKey.OP_READ);
             ServerService.selector.wakeup();
         } catch (IOException e)

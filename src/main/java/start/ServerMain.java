@@ -12,7 +12,7 @@ public class ServerMain
         ProcessService processService = new ProcessService();
         ClientRequestService clientRequestService = new ClientRequestService(processService);
         ClientResponseService clientResponseService = new ClientResponseService();
-        ServerService serverExample = new ServerService(clientRequestService,clientResponseService);
+        ServerService serverExample = new ServerService(clientRequestService,clientResponseService, processService);
         serverExample.startServer();
     }
 }

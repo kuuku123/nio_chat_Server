@@ -5,10 +5,12 @@ import domain.Room;
 import domain.Client;
 import service.ClientRequestService;
 import service.ClientResponseService;
+import service.ProcessService;
 import util.MyLog;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
 import java.nio.channels.*;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -27,12 +29,14 @@ public class ServerService
     public static int global_textId = -1;
     private final ClientRequestService crs;
     private final ClientResponseService clientResponseService;
+    private final ProcessService processService;
     ExecutorService executorService = Executors.newFixedThreadPool(4);
     public static Object readLock = new Object();
 
-    public ServerService(ClientRequestService crs, ClientResponseService clientResponseService)
+    public ServerService(ClientRequestService crs, ClientResponseService clientResponseService, ProcessService processService)
     {
         this.crs = crs;
+        this.processService = processService;
         this.logr = MyLog.getLogr();
         this.clientResponseService = clientResponseService;
     }
@@ -74,16 +78,25 @@ public class ServerService
                         }
                         else if (selectionKey.isReadable())
                         {
-                            synchronized (readLock)
+                            SocketChannel socketChannel = (SocketChannel) selectionKey.channel();
+                            ByteBuffer readBuffer = ByteBuffer.allocate(10000);
+                            try
                             {
+                                int byteCount = socketChannel.read(readBuffer);
+                                int position = readBuffer.position();
+                                System.out.println(position+ " pos ");
                                 executorService.submit(() ->
                                         {
                                             System.out.println(Thread.currentThread().getName() + " " + selectionKey);
-                                            crs.receive(selectionKey);
+                                            crs.receive(selectionKey, readBuffer, byteCount);
                                         }
                                 );
-                                readLock.wait();
                             }
+                            catch(IOException e)
+                            {
+                                processService.closeBroadcast(selectionKey);
+                            }
+
                         }
                         else if(selectionKey.isWritable())
                         {
