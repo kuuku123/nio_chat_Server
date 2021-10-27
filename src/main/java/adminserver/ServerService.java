@@ -15,6 +15,7 @@ import java.nio.channels.*;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.locks.Lock;
 import java.util.logging.Logger;
 
 public class ServerService
@@ -74,15 +75,14 @@ public class ServerService
                         SelectionKey selectionKey = iterator.next();
                         if(selectionKey.isAcceptable())
                         {
-                            synchronized (connectLock)
-                            {
+//                            synchronized (connectLock)
+//                            {
                                 executorService.submit(() ->
                                 {
                                     accept(selectionKey);
                                 });
-                                connectLock.wait();
-                            }
-
+//                                connectLock.wait();
+//                            }
                         }
                         else if (selectionKey.isReadable())
                         {
@@ -159,10 +159,10 @@ public class ServerService
             String portInfo = socketChannel.getRemoteAddress().toString();
             serverConnection(portInfo,socketChannel);
             logr.info("[연결 수락: " + socketChannel.getRemoteAddress() + ": " + Thread.currentThread().getName() + "]");
-            synchronized (ServerService.connectLock)
-            {
-                ServerService.connectLock.notify();
-            }
+//            synchronized (ServerService.connectLock)
+//            {
+//                ServerService.connectLock.notify();
+//            }
 
         }
         catch (IOException e)

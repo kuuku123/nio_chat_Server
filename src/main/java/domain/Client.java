@@ -36,6 +36,7 @@ public class Client
             SelectionKey selectionKey = socketChannel.register(ServerService.selector, SelectionKey.OP_READ);
             SendPackage sendPackage = new SendPackage(this, 0, 0, 0, 0, ByteBuffer.allocate(0));
             selectionKey.attach(sendPackage);
+            ServerService.selector.wakeup();
         } catch (IOException e)
         {
             e.printStackTrace();
