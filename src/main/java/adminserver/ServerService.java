@@ -31,7 +31,7 @@ public class ServerService
     private final ClientResponseService clientResponseService;
     private final ProcessService processService;
     ExecutorService executorService = Executors.newFixedThreadPool(4);
-    public static Object readLock = new Object();
+    public static Object connectLock = new Object();
 
     public ServerService(ClientRequestService crs, ClientResponseService clientResponseService, ProcessService processService)
     {
@@ -74,7 +74,15 @@ public class ServerService
                         SelectionKey selectionKey = iterator.next();
                         if(selectionKey.isAcceptable())
                         {
-                            accept(selectionKey);
+                            synchronized (connectLock)
+                            {
+                                executorService.submit(() ->
+                                {
+                                    accept(selectionKey);
+                                });
+                                connectLock.wait();
+                            }
+
                         }
                         else if (selectionKey.isReadable())
                         {
@@ -89,6 +97,7 @@ public class ServerService
                             }
                             catch(IOException e)
                             {
+                                e.printStackTrace();
                                 processService.closeBroadcast(selectionKey);
                             }
 
@@ -150,6 +159,10 @@ public class ServerService
             String portInfo = socketChannel.getRemoteAddress().toString();
             serverConnection(portInfo,socketChannel);
             logr.info("[연결 수락: " + socketChannel.getRemoteAddress() + ": " + Thread.currentThread().getName() + "]");
+            synchronized (ServerService.connectLock)
+            {
+                ServerService.connectLock.notify();
+            }
 
         }
         catch (IOException e)

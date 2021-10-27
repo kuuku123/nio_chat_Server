@@ -33,9 +33,6 @@ public class ClientRequestService
         Client client = sendPackage.getClient();
         try
         {
-            System.out.println(byteCount + " bytecount ");
-
-
             logr.info("[요청 처리: " + client.getSocketChannel().getRemoteAddress() + ": " + Thread.currentThread().getName() + "]");
             processService.processOp(readBuffer);
             readBuffer.clear();
@@ -43,10 +40,6 @@ public class ClientRequestService
         catch(Exception e)
         {
             processService.closeBroadcast(selectionKey);
-            synchronized (ServerService.readLock)
-            {
-                ServerService.readLock.notify();
-            }
         }
     }
 }
