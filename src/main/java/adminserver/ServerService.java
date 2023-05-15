@@ -43,133 +43,90 @@ public class ServerService
     }
 
 
-    public void startServer()
-    {
-        try
-        {
+    public void startServer() {
+        try {
             selector = Selector.open();
             serverSocketChannel = ServerSocketChannel.open();
             serverSocketChannel.configureBlocking(false);
-            serverSocketChannel.register(selector,SelectionKey.OP_ACCEPT);
+            serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
             serverSocketChannel.bind(new InetSocketAddress(5001));
             logr.info("[서버 연결됨]");
-        } catch (Exception e)
-        {
+        } catch (Exception e) {
             if (serverSocketChannel.isOpen()) stopServer();
             logr.severe("[서버 연결 실패 startServer]");
             return;
         }
 
-        Thread thread = new Thread(() ->
-        {
-            while(true)
-            {
-                try
-                {
-                    int keyCount = selector.select();
-                    if(keyCount == 0) continue;
-                    Set<SelectionKey> selectedKeys = selector.selectedKeys();
-                    Iterator<SelectionKey> iterator = selectedKeys.iterator();
-                    while(iterator.hasNext())
-                    {
-                        SelectionKey selectionKey = iterator.next();
-                        if(selectionKey.isAcceptable())
-                        {
-//                            synchronized (connectLock)
-//                            {
-                                executorService.submit(() ->
-                                {
-                                    accept(selectionKey);
-                                });
-//                                connectLock.wait();
-//                            }
-                        }
-                        else if (selectionKey.isReadable())
-                        {
-                            SocketChannel socketChannel = (SocketChannel) selectionKey.channel();
-                            ByteBuffer readBuffer = ByteBuffer.allocate(10000);
-                            try
-                            {
-                                int byteCount = socketChannel.read(readBuffer);
-                                executorService.submit(() ->
-                                        crs.receive(selectionKey, readBuffer, byteCount)
-                                );
-                            }
-                            catch(IOException e)
-                            {
-                                e.printStackTrace();
-                                processService.closeBroadcast(selectionKey);
-                            }
+        while (true) {
+            try {
+                int keyCount = selector.select();
+                if (keyCount == 0) continue;
+                Set<SelectionKey> selectedKeys = selector.selectedKeys();
+                Iterator<SelectionKey> iterator = selectedKeys.iterator();
 
+                while (iterator.hasNext()) {
+                    SelectionKey selectionKey = iterator.next();
+                    if (selectionKey.isAcceptable()) {
+                        accept(selectionKey);
+                    } else if (selectionKey.isReadable()) {
+                        SocketChannel socketChannel = (SocketChannel) selectionKey.channel();
+                        ByteBuffer readBuffer = ByteBuffer.allocate(10000);
+                        try {
+                            int byteCount = socketChannel.read(readBuffer);
+                            executorService.submit(() ->
+                                    crs.receive(selectionKey, readBuffer, byteCount)
+                            );
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                            processService.closeBroadcast(selectionKey);
                         }
-                        else if(selectionKey.isWritable())
-                        {
-                            executorService.submit( () ->
-                                    clientResponseService.send(selectionKey));
-                        }
-                        iterator.remove();
+
+                    } else if (selectionKey.isWritable()) {
+                        executorService.submit(() ->
+                                clientResponseService.send(selectionKey));
                     }
+                    iterator.remove();
                 }
-                catch (Exception e)
-                {
-                    e.printStackTrace();
-                    if(serverSocketChannel.isOpen()) stopServer();
-                    break;
-                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                if (serverSocketChannel.isOpen()) stopServer();
+                break;
             }
-        });
-        thread.start();
+        }
     }
 
-    void stopServer()
-    {
+    void stopServer() {
 
-        try
-        {
+        try {
             Iterator<Client> iterator = clientList.iterator();
-            while(iterator.hasNext())
-            {
+            while (iterator.hasNext()) {
                 Client client = iterator.next();
                 client.getSocketChannel().close();
                 iterator.remove();
             }
-            if(serverSocketChannel != null && serverSocketChannel.isOpen())
-            {
+            if (serverSocketChannel != null && serverSocketChannel.isOpen()) {
                 serverSocketChannel.close();
                 logr.info("[서버 전체 종료]");
             }
-            if(selector!= null && selector.isOpen())
-            {
+            if (selector != null && selector.isOpen()) {
                 selector.close();
             }
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             logr.severe("[서버 전체 종료 실패]");
 
         }
     }
 
-    void accept(SelectionKey selectionKey)
-    {
-        try
-        {
-            ServerSocketChannel serverSocketChannel =(ServerSocketChannel) selectionKey.channel();
+    void accept(SelectionKey selectionKey) {
+        try {
+            ServerSocketChannel serverSocketChannel = (ServerSocketChannel) selectionKey.channel();
             SocketChannel socketChannel = serverSocketChannel.accept();
             String portInfo = socketChannel.getRemoteAddress().toString();
-            serverConnection(portInfo,socketChannel);
+            serverConnection(portInfo, socketChannel);
             logr.info("[연결 수락: " + socketChannel.getRemoteAddress() + ": " + Thread.currentThread().getName() + "]");
-//            synchronized (ServerService.connectLock)
-//            {
-//                ServerService.connectLock.notify();
-//            }
-
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             logr.severe("[Client 연결 도중에 끊김 accept IOException fail]");
-            if(serverSocketChannel.isOpen())
-            {
+            if (serverSocketChannel.isOpen()) {
                 stopServer();
             }
         }
@@ -177,34 +134,27 @@ public class ServerService
 
     }
 
-    void serverConnection(String portInfo,SocketChannel socketChannel)
-    {
+    void serverConnection(String portInfo, SocketChannel socketChannel) {
         String[] portInfos = portInfo.split(":");
         int port = Integer.parseInt(portInfos[1]);
-        if (port == 10001 || port == 10002)
-        {
+        if (port == 10001 || port == 10002) {
 //            RemoteRoomServer remoteRoomServer = new RemoteRoomServer(socketChannel, port);
 //            remoteRoomSeverList.add(remoteRoomServer);
 //            logr.info("[remote RoomServer port :" + port + " connected]");
 //            logr.info("[remote RoomServer 연결 개수: " + remoteRoomSeverList.size() + "]");
-        }
-        else
-        {
+        } else {
             Client client = new Client(socketChannel);
-            SelectionKey selectionKey = client.getSocketChannel().keyFor(selector);
+            client.getSocketChannel().keyFor(selector);
             clientList.add(client);
             logr.info("[연결 개수: " + clientList.size() + "]");
         }
     }
 
-    public static Client getSender(String userId)
-    {
+    public static Client getSender(String userId) {
         List<Client> clientList = ServerService.clientList;
         Client sender = null;
-        for (Client c : clientList)
-        {
-            if (c.getUserId().equals(userId))
-            {
+        for (Client c : clientList) {
+            if (c.getUserId().equals(userId)) {
                 sender = c;
                 break;
             }
